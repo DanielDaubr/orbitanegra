@@ -47,7 +47,10 @@
   const TOTAL_POLICIES = 17;
   const SABOTAGE_POLICIES = 11;
   const CREW_POLICIES = 6;
-  const WIN_POLICIES = 6;
+  // Secret Hitler's 5/6 split: the crew needs 5 of its 6 repair cards,
+  // the infiltrators need 6 of their 11 sabotage cards.
+  const CREW_WIN_POLICIES = 5;
+  const SABOTAGE_WIN_POLICIES = 6;
   const VETO_THRESHOLD = 5;
   const TRACKER_LIMIT = 3;
   const RESHUFFLE_THRESHOLD = 3;
@@ -399,14 +402,14 @@
     pushEvent(state, { type: 'policy-enacted', policy: policy, source: source });
 
     if (policy === 'crew') {
-      if (state.policies.crew >= WIN_POLICIES) {
+      if (state.policies.crew >= CREW_WIN_POLICIES) {
         endGame(state, 'crew', 'policies');
         return 'game-over';
       }
       return 'advance';
     }
 
-    if (state.policies.sabotage >= WIN_POLICIES) {
+    if (state.policies.sabotage >= SABOTAGE_WIN_POLICIES) {
       endGame(state, 'infiltrators', 'policies');
       return 'game-over';
     }
@@ -700,6 +703,8 @@
     PLAYER_COUNTS: PLAYER_COUNTS,
     POWER_TABLE: POWER_TABLE,
     TOTAL_POLICIES: TOTAL_POLICIES,
+    CREW_WIN_POLICIES: CREW_WIN_POLICIES,
+    SABOTAGE_WIN_POLICIES: SABOTAGE_WIN_POLICIES,
     VETO_THRESHOLD: VETO_THRESHOLD,
     TRACKER_LIMIT: TRACKER_LIMIT,
     createGame: createGame,

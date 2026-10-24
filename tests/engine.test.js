@@ -402,29 +402,48 @@ test('a reparador who is not isolated keeps a secret hand', function () {
   assert.equal(leaks.length, 0, 'a normal reparador never exposes cards');
 });
 
-test('six crew policies win for the crew', function () {
+test('five crew policies win for the crew', function () {
+  assert.equal(E.CREW_WIN_POLICIES, 5);
   const state = makeTable({
     players: 5,
     seed: 3,
-    policies: { crew: 5, sabotage: 0 },
+    policies: { crew: 4, sabotage: 0 },
     presidentHand: ['sabotage', 'sabotage', 'crew']
   });
   state.chancellorId = 1;
 
   // The president ditches a sabotage card, leaving the chancellor a crew
-  // policy at index 1 to enact as the sixth crew policy.
+  // policy at index 1 to enact as the fifth crew policy.
   state.phase = 'legislative-president';
   E.presidentDiscard(state, 0);
   assert.deepEqual(state.chancellorHand, ['sabotage', 'crew']);
   E.chancellorDiscard(state, 1);
 
-  assert.equal(state.policies.crew, 6);
+  assert.equal(state.policies.crew, 5);
   assert.equal(state.policies.sabotage, 0);
   assert.equal(state.winner, 'crew');
   assert.equal(state.winReason, 'policies');
 });
 
+test('four crew policies are not enough to win', function () {
+  const state = makeTable({
+    players: 5,
+    seed: 3,
+    policies: { crew: 3, sabotage: 0 },
+    presidentHand: ['sabotage', 'sabotage', 'crew']
+  });
+  state.chancellorId = 1;
+  state.phase = 'legislative-president';
+  E.presidentDiscard(state, 0);
+  E.chancellorDiscard(state, 1);
+
+  assert.equal(state.policies.crew, 4);
+  assert.equal(state.winner, null);
+  assert.equal(state.phase, 'nomination');
+});
+
 test('six sabotage policies win for the infiltrators', function () {
+  assert.equal(E.SABOTAGE_WIN_POLICIES, 6);
   const state = makeTable({
     players: 9,
     seed: 3,
@@ -706,12 +725,12 @@ function randomMove(state, rand) {
 }
 
 function checkInvariants(state, label) {
-  assert.ok(state.policies.crew >= 0 && state.policies.crew <= 6, label + ': crew policies out of range');
+  assert.ok(state.policies.crew >= 0 && state.policies.crew <= 5, label + ': crew policies out of range');
   assert.ok(
     state.policies.sabotage >= 0 && state.policies.sabotage <= 6,
     label + ': sabotage policies out of range'
   );
-  assert.ok(!(state.policies.crew === 6 && state.policies.sabotage === 6), label + ': both sides reached six');
+  assert.ok(!(state.policies.crew === 5 && state.policies.sabotage === 6), label + ': both sides reached their goal');
 
   assert.equal(conservation(state), 17, label + ': policy conservation broken');
 

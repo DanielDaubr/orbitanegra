@@ -54,11 +54,10 @@ leak on the handoff screen, the game is not playable with real people at a table
       `source: 'tracker'`, term limits.
 - [x] **T4** Powers — `investigate`, `special-election`, `isolate` (was `execute`, see T16) via the
       per-count `POWER_TABLE`; veto unlocks at `sabotage >= 5`.
-- [x] **T5** Win conditions — `WIN_POLICIES = 6` for both factions, `android`
-      executed, `android` elected Primer Oficial at `sabotage >= 3`. The 6/6 count
-      is a deliberate deviation from Secret Hitler's 5/6, kept by explicit user
-      decision after an A/B balance probe showed the difference is under half a
-      percentage point of win rate.
+- [x] **T5** Win conditions — crew wins with `CREW_WIN_POLICIES = 5`,
+      infiltrators with `SABOTAGE_WIN_POLICIES = 6` (Secret Hitler's 5/6 split,
+      restored in T17), `android` isolated, `android` elected reparador at
+      `sabotage >= 3`.
 - [x] **T6** Engine tests — 27 `node:test` cases plus a 200-game fuzz run
       asserting the policy-conservation invariant after every move.
 - [x] **T7** UI — setup, sequential role reveal, board, per-phase action panel,
@@ -103,6 +102,10 @@ leak on the handoff screen, the game is not playable with real people at a table
       so the previous Capitán is only eligible in 5-player games. Balance probe,
       3 000 random games per player count on each engine: crew 16.2% before and
       after; android wins by isolation 14.6% vs 14.4% by execution.
+- [x] **T17** Crew needs 5 repairs, not 6. With 6 the crew had to enact every
+      repair card in the deck. Random-play probe, 3 000 games per player count:
+      crew wins 16.6% at 6/6 and 23.0% at 5/6; average length 12.6 → 12.3 rounds.
+      The crew track renders from `E.CREW_WIN_POLICIES`, so it shows 5 cells.
 
 ## Progress and evidence
 

@@ -147,7 +147,7 @@
       objective: 'Objetivo: salvar la nave',
       icon: 'shield',
       text:
-        'Sos parte de la tripulación leal. Ganás si se activan 6 protocolos de ' +
+        'Sos parte de la tripulación leal. Ganás si se activan 5 protocolos de ' +
         'reparación o si el Androide queda aislado en el módulo 4.'
     },
     infiltrator: {
@@ -727,8 +727,8 @@
       )
     );
 
-    const crewCells = el('div', { class: 'track-cells' });
-    for (let i = 0; i < 6; i += 1) {
+    const crewCells = el('div', { class: 'track-cells', style: 'grid-template-columns: repeat(' + E.CREW_WIN_POLICIES + ', 1fr)' });
+    for (let i = 0; i < E.CREW_WIN_POLICIES; i += 1) {
       const filled = i < gv.policies.crew;
       crewCells.appendChild(
         trackCell((filled ? 'filled crew' : '') + (i === gv.policies.crew ? ' upcoming' : ''), [
@@ -738,13 +738,13 @@
     }
     panel.appendChild(
       el('div', { class: 'track' }, [
-        el('div', { class: 'track-name crew-c' }, [el('span', { text: 'Reparación' }), el('small', { text: '6 para ganar' })]),
+        el('div', { class: 'track-name crew-c' }, [el('span', { text: 'Reparación' }), el('small', { text: E.CREW_WIN_POLICIES + ' para ganar' })]),
         crewCells
       ])
     );
 
     const sabotageCells = el('div', { class: 'track-cells' });
-    for (let i = 0; i < 6; i += 1) {
+    for (let i = 0; i < E.SABOTAGE_WIN_POLICIES; i += 1) {
       const power = E.POWER_TABLE[gv.playerCount][i + 1];
       const filled = i < gv.policies.sabotage;
       const upcoming = i === gv.policies.sabotage;
@@ -760,7 +760,7 @@
     }
     panel.appendChild(
       el('div', { class: 'track' }, [
-        el('div', { class: 'track-name sab-c' }, [el('span', { text: 'Sabotaje' }), el('small', { text: '6 para ganar' })]),
+        el('div', { class: 'track-name sab-c' }, [el('span', { text: 'Sabotaje' }), el('small', { text: E.SABOTAGE_WIN_POLICIES + ' para ganar' })]),
         sabotageCells
       ])
     );
@@ -1526,7 +1526,7 @@
     {
       title: 'Objetivo',
       body:
-        'A bordo hay dos bandos. La Tripulación leal gana si se activan 6 protocolos de ' +
+        'A bordo hay dos bandos. La Tripulación leal gana si se activan 5 protocolos de ' +
         'reparación o si el Androide queda aislado en el módulo 4. Los Infiltrados ganan si se ' +
         'promulgan 6 sabotajes, o si el Androide es elegido reparador con ' +
         '3 o más sabotajes ya promulgados.'
