@@ -85,6 +85,12 @@ leak on the handoff screen, the game is not playable with real people at a table
 - [x] **T14** Deterministic UI suite — the sandbox now hands the engine a seeded
       `Math`, so the 12 end-to-end games are reproducible instead of being dealt
       fresh from `Math.random()` on every run.
+- [x] **T15** Neon console redesign — splash screen (Iniciar / Cómo se juega),
+      sticky header with game number and round, bottom dock (Reglas, Historia,
+      Salir), ship wireframe in "Estado de la nave", icon tracks, avatar crew grid,
+      role portraits, timeline log. Nominations and power targets now need an
+      explicit "Confirmar" after picking a player. Icons are inline SVG injected
+      into empty spans so button labels stay plain text.
 
 ## Progress and evidence
 

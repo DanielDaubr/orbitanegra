@@ -280,6 +280,7 @@ function playOneGame(seed, seen) {
   let turnId = 0;
   let peekedTurn = -1;
 
+  clickLabel(root, 'Iniciar');
   clickLabel(root, 'Iniciar misión');
   seen.start += 1;
 
@@ -402,6 +403,15 @@ function playOneGame(seed, seen) {
       continue;
     }
 
+    const confirm = findByLabel(root, function (text) {
+      return text.indexOf('Confirmar') === 0;
+    });
+    if (confirm) {
+      click(confirm);
+      seen.confirm += 1;
+      continue;
+    }
+
     const picks = buttonsByClass(root, 'selectable');
     if (picks.length > 0) {
       click(picks[Math.floor(rand() * picks.length)]);
@@ -430,7 +440,8 @@ test('the UI can play whole games without dead ends', function () {
     pick: 0,
     vetoPropose: 0,
     vetoAnswer: 0,
-    investigationResult: 0
+    investigationResult: 0,
+    confirm: 0
   };
 
   const outcomes = { crew: 0, infiltrators: 0 };
@@ -465,6 +476,7 @@ test('the UI can play whole games without dead ends', function () {
   assert.ok(seen.voteResult > games, 'vote tallies must be shown');
   assert.ok(seen.policy > games, 'policies must actually be enacted');
   assert.ok(seen.pick > games, 'nominations and power targets must be selectable');
+  assert.equal(seen.confirm, seen.pick, 'every pick is confirmed before it takes effect');
   assert.ok(outcomes.crew > 0, 'the crew victory screen must be reachable');
   assert.ok(outcomes.infiltrators > 0, 'the infiltrator victory screen must be reachable');
 });
@@ -472,6 +484,7 @@ test('the UI can play whole games without dead ends', function () {
 test('the setup reveal never shows another player their role', function () {
   const root = boot().root;
 
+  clickLabel(root, 'Iniciar');
   clickLabel(root, 'Iniciar misión');
 
   for (let i = 0; i < 6; i += 1) {
@@ -504,8 +517,20 @@ test('the setup reveal never shows another player their role', function () {
   assert.ok(root.textContent.indexOf('Registro de sistemas') !== -1, 'the board renders after the reveal');
 });
 
+test('the splash screen opens the rules', function () {
+  const root = boot().root;
+
+  assert.ok(hasLabel(root, 'Iniciar'), 'the splash screen offers to start');
+  clickLabel(root, 'Cómo se juega');
+  assert.ok(elementsByClass(root, 'sheet')[0].textContent.indexOf('Cómo se juega') !== -1);
+  clickLabel(root, 'Cerrar');
+  assert.equal(elementsByClass(root, 'sheet').length, 0, 'the sheet closes');
+  assert.ok(hasLabel(root, 'Iniciar'), 'the splash screen is still there');
+});
+
 test('the rules sheet opens before the game starts', function () {
   const root = boot().root;
+  clickLabel(root, 'Iniciar');
 
   clickLabel(root, 'Reglas');
 
@@ -528,6 +553,7 @@ test('the rules sheet opens before the game starts', function () {
 
 test('the lore sheet opens before the game starts', function () {
   const root = boot().root;
+  clickLabel(root, 'Iniciar');
 
   clickLabel(root, 'Historia');
 
@@ -543,6 +569,7 @@ test('the lore sheet opens before the game starts', function () {
 test('rules and lore stay reachable once the game is running', function () {
   const root = boot().root;
 
+  clickLabel(root, 'Iniciar');
   clickLabel(root, 'Iniciar misión');
   clearSetupReveals(root);
 
@@ -563,6 +590,7 @@ test('rules and lore stay reachable once the game is running', function () {
 test('the role button appears only on the acting players turn', function () {
   const root = boot().root;
 
+  clickLabel(root, 'Iniciar');
   clickLabel(root, 'Iniciar misión');
   clearSetupReveals(root);
 
@@ -600,6 +628,7 @@ test('the role button appears only on the acting players turn', function () {
 test('the game over screen reveals every role', function () {
   const root = boot().root;
 
+  clickLabel(root, 'Iniciar');
   clickLabel(root, 'Iniciar misión');
 
   const rand = makeRandom(991);
@@ -646,6 +675,11 @@ test('the game over screen reveals every role', function () {
       if (cards.length) {
         button = cards[0];
       }
+    }
+    if (!button) {
+      button = findByLabel(root, function (text) {
+        return text.indexOf('Confirmar') === 0;
+      });
     }
     if (!button) {
       const picks = buttonsByClass(root, 'selectable');
