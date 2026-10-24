@@ -111,6 +111,13 @@ leak on the handoff screen, the game is not playable with real people at a table
       previous round (`cannot-pick-previous-captain`), tracked as
       `state.priorCaptainId` on every change of command. `powerTargetIds()` is
       the single source the UI offers. The rules sheet now explains each power.
+- [x] **T19** Reload resumes the game — the engine state plus the UI fields
+      that matter (screen, setup names, reveal/vote progress, open modal) are
+      saved to `localStorage` (`orbita-negra:save:v1`) on every render. On load
+      every secret goes back behind a hand-off: role reveals hide, the turn
+      asks "Soy …" again, and a pending escáner result is only shown after its
+      Capitán confirms. Missing or blocked storage just means no save; a corrupt
+      save is discarded. Leaving the game clears it.
 
 ## Progress and evidence
 

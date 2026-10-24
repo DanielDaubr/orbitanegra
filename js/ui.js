@@ -1214,13 +1214,14 @@
 
   function doUsePower(targetId) {
     const power = game.pendingPower;
+    const viewerId = game.presidentId;
     const result = E.usePower(game, { targetId: targetId });
     if (!result.ok) {
       return flashError(result.error);
     }
     resetHandoff();
     if (power === 'investigate' && result.party) {
-      ui.modal = { kind: 'investigation', targetId: targetId, party: result.party };
+      ui.modal = { kind: 'investigation', targetId: targetId, party: result.party, viewerId: viewerId };
     }
     render();
   }
@@ -1816,7 +1817,111 @@
     );
   }
 
+  // ------------------------------------------------------------------- saving
+  // The whole game lives in this browser so a reload resumes it. Storage can be
+  // missing or blocked (private mode, file://, tests), so every access is
+  // guarded and the game simply runs unsaved when it fails.
+
+  const SAVE_KEY = 'orbita-negra:save:v1';
+  const SAVED_UI_FIELDS = ['playerCount', 'names', 'screen', 'revealIndex', 'voteIndex', 'votes', 'modal'];
+
+  function storage() {
+    try {
+      return window.localStorage || null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function saveGame() {
+    const store = storage();
+    if (!store) {
+      return;
+    }
+    const savedUi = {};
+    SAVED_UI_FIELDS.forEach(function (key) {
+      savedUi[key] = ui[key];
+    });
+    try {
+      store.setItem(SAVE_KEY, JSON.stringify({ game: game, ui: savedUi }));
+    } catch (error) {
+      // Quota or privacy settings: keep playing without a save.
+    }
+  }
+
+  function loadGame() {
+    const store = storage();
+    if (!store) {
+      return false;
+    }
+    try {
+      const raw = store.getItem(SAVE_KEY);
+      if (!raw) {
+        return false;
+      }
+      const saved = JSON.parse(raw);
+      const restored = freshUi();
+      SAVED_UI_FIELDS.forEach(function (key) {
+        if (saved.ui && saved.ui[key] !== undefined) {
+          restored[key] = saved.ui[key];
+        }
+      });
+      if (saved.game) {
+        E.publicView(saved.game); // throws on a save from an incompatible version
+      } else if (restored.screen !== 'setup') {
+        restored.screen = 'splash';
+      }
+      // Whoever holds the device after a reload is unknown: every secret goes
+      // back behind a hand-off screen.
+      restored.revealShown = false;
+      restored.readyKey = null;
+      restored.pick = null;
+      restored.pickKey = null;
+      if (restored.modal && restored.modal.kind === 'investigation') {
+        restored.modal.locked = true;
+      }
+      game = saved.game || null;
+      ui = restored;
+      return true;
+    } catch (error) {
+      try {
+        store.removeItem(SAVE_KEY);
+      } catch (ignored) {
+        // nothing else to do
+      }
+      return false;
+    }
+  }
+
+  // After a reload the scan result is only shown again to the Capitán who used it.
+  function lockedInvestigationOverlay() {
+    const viewerId = ui.modal.viewerId;
+    return overlay(
+      el('div', { class: 'overlay-card handoff' }, [
+        el('div', { class: 'eyebrow', text: 'Resultado del escáner pendiente' }),
+        avatar(viewerId, 'xl'),
+        el('div', { class: 'pass-name', text: playerName(viewerId) }),
+        el('p', { class: 'pass-hint', text: 'Solo el Capitán que usó el escáner puede ver el resultado.' }),
+        el('div', { class: 'overlay-actions' }, [
+          el(
+            'button',
+            {
+              class: 'btn btn-primary btn-wide',
+              type: 'button',
+              onClick: function () {
+                ui.modal.locked = false;
+                render();
+              }
+            },
+            ['Soy ' + playerName(viewerId)]
+          )
+        ])
+      ])
+    );
+  }
+
   function render() {
+    saveGame();
     renderBase();
     if (ui.toast) {
       app.appendChild(el('div', { class: 'toast', role: 'status', text: ui.toast }));
@@ -1876,7 +1981,11 @@
     }
 
     if (ui.modal) {
-      app.appendChild(ui.modal.kind === 'vote' ? voteModal() : investigationModal());
+      if (ui.modal.kind === 'vote') {
+        app.appendChild(voteModal());
+      } else {
+        app.appendChild(ui.modal.locked ? lockedInvestigationOverlay() : investigationModal());
+      }
       return;
     }
 
@@ -1889,5 +1998,6 @@
   // ---------------------------------------------------------------------- boot
 
   ui = freshUi();
+  loadGame();
   render();
 })();

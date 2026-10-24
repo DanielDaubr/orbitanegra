@@ -82,7 +82,7 @@ function walk(node, visit) {
   });
 }
 
-function boot(seed) {
+function boot(seed, storage) {
   const documentRoot = makeElement('html');
   const appNode = makeElement('main');
   appNode.setAttribute('id', 'app');
@@ -123,6 +123,9 @@ function boot(seed) {
 
   // ui.js reads window.OrbitaEngine; make window an alias of the global object
   // so the UMD engine's global assignment is visible through it.
+  if (storage) {
+    sandbox.localStorage = storage;
+  }
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
   sandbox.self = sandbox;
@@ -707,4 +710,147 @@ test('the game over screen reveals every role', function () {
   }
 
   assert.fail('game did not finish within the step budget');
+});
+
+// ------------------------------------------------------------------ reloads
+
+function memoryStorage() {
+  const data = {};
+  return {
+    data: data,
+    getItem: function (key) {
+      return Object.prototype.hasOwnProperty.call(data, key) ? data[key] : null;
+    },
+    setItem: function (key, value) {
+      data[key] = String(value);
+    },
+    removeItem: function (key) {
+      delete data[key];
+    }
+  };
+}
+
+function gameNumberOf(root) {
+  const match = root.textContent.match(/Partida #\d{4}/);
+  return match ? match[0] : null;
+}
+
+// Clicks through the game like a table of players until `stop` says so.
+function playUntil(root, rand, stop) {
+  for (let step = 0; step < 4000; step += 1) {
+    if (stop(root)) {
+      return true;
+    }
+    const button =
+      findByLabel(root, function (text) {
+        return text.indexOf('— ver mi rol') !== -1 || text.indexOf('Listo') === 0 || text.indexOf('Soy ') === 0;
+      }) ||
+      findByLabel(root, function (text) {
+        return text === 'Continuar' || text.indexOf('Entendido') === 0 || text.indexOf('Confirmar') === 0;
+      }) ||
+      (function () {
+        const vote = rand() < 0.7 ? 'Apruebo' : 'Rechazo';
+        return findByLabel(root, function (text) {
+          return text === vote || text === 'Rechazar';
+        });
+      })() ||
+      buttonsByClass(root, 'policy-card').find(function (card) {
+        return card.className.indexOf('crew') !== -1 || rand() < 0.5;
+      }) ||
+      buttonsByClass(root, 'policy-card')[0] ||
+      buttonsByClass(root, 'selectable')[0];
+    if (!button) {
+      return false;
+    }
+    click(button);
+  }
+  return false;
+}
+
+test('a reload in the middle of a game resumes it behind a hand-off', function () {
+  const storage = memoryStorage();
+  const first = boot(1234, storage).root;
+  clickLabel(first, 'Iniciar');
+  clickLabel(first, 'Iniciar misión');
+  clearSetupReveals(first);
+
+  const rand = makeRandom(5);
+  playUntil(first, rand, function () {
+    return JSON.parse(storage.data['orbita-negra:save:v1']).game.events.length > 12;
+  });
+  const before = gameNumberOf(first);
+  const savedEvents = JSON.parse(storage.data['orbita-negra:save:v1']).game.events.length;
+  assert.ok(before, 'the board shows a game number');
+  assert.ok(savedEvents > 2, 'the game made progress before the reload');
+
+  const second = boot(9999, storage).root;
+  assert.equal(gameNumberOf(second), before, 'the same game comes back after a reload');
+  assert.ok(second.textContent.indexOf('Registro de sistemas') !== -1, 'the board is back');
+  assert.ok(hasLabel(second, 'Soy ') || findByLabel(second, function (t) { return t.indexOf('Soy ') === 0; }),
+    'the reload asks who holds the device');
+  assert.equal(elementsByClass(second, 'role-card').length, 0, 'no role is visible after a reload');
+  assert.equal(buttonsByClass(second, 'policy-card').length, 0, 'no secret hand is visible after a reload');
+  assert.equal(JSON.parse(storage.data['orbita-negra:save:v1']).game.events.length, savedEvents);
+
+  assert.ok(playUntil(second, rand, function (root) {
+    return elementsByClass(root, 'reveal-row').length > 0;
+  }), 'the resumed game can be played to the end');
+});
+
+test('a reload while a role is on screen hides it again', function () {
+  const storage = memoryStorage();
+  const first = boot(77, storage).root;
+  clickLabel(first, 'Iniciar');
+  clickLabel(first, 'Iniciar misión');
+  click(findByLabel(first, function (text) { return text.indexOf('— ver mi rol') !== -1; }));
+  assert.equal(elementsByClass(first, 'role-card').length, 1);
+
+  const second = boot(78, storage).root;
+  assert.equal(elementsByClass(second, 'role-card').length, 0, 'the role is hidden after the reload');
+  assert.ok(findByLabel(second, function (text) { return text.indexOf('— ver mi rol') !== -1; }),
+    'the same player is asked to take the device again');
+});
+
+test('a reload never shows a scan result to the wrong player', function () {
+  let storage = null;
+  let found = null;
+  for (let seed = 1; seed < 60 && !found; seed += 1) {
+    storage = memoryStorage();
+    const root = boot(seed, storage).root;
+    clickLabel(root, 'Iniciar');
+    clickLabel(root, 'Iniciar misión');
+    if (playUntil(root, makeRandom(seed), function (r) { return elementsByClass(r, 'investigation-box').length > 0; })) {
+      found = root;
+    }
+  }
+  assert.ok(found, 'some seeded game must reach an escáner result');
+  const verdict = elementsByClass(found, 'investigation-verdict')[0].textContent;
+
+  const reloaded = boot(4242, storage).root;
+  assert.equal(elementsByClass(reloaded, 'investigation-box').length, 0, 'the result is hidden after a reload');
+  const owner = findByLabel(reloaded, function (text) { return text.indexOf('Soy ') === 0; });
+  assert.ok(owner, 'the Capitán who scanned must confirm before seeing it again');
+  click(owner);
+  assert.equal(elementsByClass(reloaded, 'investigation-verdict')[0].textContent, verdict, 'the same result comes back');
+});
+
+test('a corrupt save is discarded and the game starts fresh', function () {
+  const storage = memoryStorage();
+  storage.setItem('orbita-negra:save:v1', '{not json');
+  const root = boot(1, storage).root;
+  assert.ok(hasLabel(root, 'Iniciar'), 'the splash screen shows');
+  assert.equal(root.textContent.indexOf('Partida #'), -1);
+});
+
+test('leaving the game clears it from the save', function () {
+  const storage = memoryStorage();
+  const first = boot(3, storage).root;
+  clickLabel(first, 'Iniciar');
+  clickLabel(first, 'Iniciar misión');
+  clearSetupReveals(first);
+  clickLabel(first, 'Salir');
+
+  const second = boot(4, storage).root;
+  assert.ok(hasLabel(second, 'Iniciar'), 'back on the splash screen');
+  assert.equal(second.textContent.indexOf('Partida #'), -1, 'the abandoned game does not come back');
 });
