@@ -502,7 +502,7 @@ test('the setup reveal never shows another player their role', function () {
     assert.ok(passScreen.indexOf('ver mi rol') !== -1);
     assert.equal(passScreen.indexOf('Tripulante'), -1, 'no role leaks before the player takes the device');
     assert.equal(passScreen.indexOf('Infiltrado'), -1, 'no role leaks before the player takes the device');
-    assert.equal(passScreen.indexOf('El Androide'), -1, 'no role leaks before the player takes the device');
+    assert.equal(passScreen.indexOf('Androide'), -1, 'no role leaks before the player takes the device');
 
     click(
       findByLabel(root, function (text) {
@@ -514,7 +514,7 @@ test('the setup reveal never shows another player their role', function () {
     const shown =
       roleScreen.indexOf('Tripulante') !== -1 ||
       roleScreen.indexOf('Infiltrado') !== -1 ||
-      roleScreen.indexOf('El Androide') !== -1;
+      roleScreen.indexOf('Androide') !== -1;
     assert.ok(shown, 'the role must be visible right after taking the device');
 
     click(

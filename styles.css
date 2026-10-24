@@ -392,11 +392,13 @@ body {
   color: var(--cyan);
 }
 
+.panel-title {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+
 .panel-title-text {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .counters {
@@ -1160,7 +1162,7 @@ body {
 
 .policy-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
   gap: 10px;
 }
 
@@ -1713,17 +1715,36 @@ body {
 .reveal-row.infiltrator { --tone: var(--violet); }
 .reveal-row.android { --tone: var(--red); }
 
-.reveal-row .rname {
+.rinfo {
+  display: flex;
   flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rinfo .badge {
+  padding: 0 7px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.reveal-row .rname {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-family: var(--display);
   font-size: 16px;
   font-weight: 700;
 }
 
 .reveal-row .rrole {
-  min-width: 92px;
+  flex: none;
   font-family: var(--display);
   font-size: 13px;
+  white-space: nowrap;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-align: right;
@@ -1940,4 +1961,207 @@ body {
   border: 1px solid var(--red);
   color: #ffc2cd;
   background: var(--red-soft);
+}
+
+/* ------------------------------------------------------------ coming soon */
+
+.btn-soon,
+.btn-soon:disabled {
+  position: relative;
+  opacity: 1;
+  border: 1px dashed rgba(147, 168, 200, 0.35);
+  background: rgba(6, 14, 28, 0.5);
+  color: var(--text-faint);
+  cursor: not-allowed;
+}
+
+.btn-soon .ico {
+  font-size: 17px;
+}
+
+.soon-badge {
+  position: absolute;
+  top: -9px;
+  right: 14px;
+  padding: 1px 8px;
+  border: 1px solid rgba(245, 197, 66, 0.55);
+  border-radius: 999px;
+  background: #1c1708;
+  color: var(--gold);
+  font-family: var(--sans);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-shadow: none;
+}
+
+/* --------------------------------------------------------- tables & narrow */
+
+.table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.fine.left {
+  text-align: left;
+}
+
+@media (max-width: 400px) {
+  .appbar-sub,
+  .eyebrow,
+  .pass-kicker {
+    letter-spacing: 0.12em;
+  }
+
+  .appbar-h {
+    letter-spacing: 0.1em;
+  }
+
+  .rules-table {
+    font-size: 12px;
+  }
+
+  .rules-table th,
+  .rules-table td {
+    padding: 6px 3px;
+  }
+
+  .rules-table thead th {
+    font-size: 10px;
+    letter-spacing: 0.02em;
+  }
+
+  .policy-card {
+    padding: 14px 4px 10px;
+  }
+
+  .policy-card .glyph {
+    width: 44px;
+    height: 44px;
+    font-size: 22px;
+  }
+
+  .plabel {
+    font-size: 13px;
+    letter-spacing: 0.04em;
+  }
+
+  .vote-btn {
+    letter-spacing: 0.08em;
+  }
+
+  .action-title {
+    font-size: 18px;
+    letter-spacing: 0.08em;
+  }
+
+  .btn-lg {
+    letter-spacing: 0.2em;
+  }
+
+  .btn {
+    letter-spacing: 0.12em;
+  }
+}
+
+@media (max-width: 360px) {
+  .cell-label {
+    display: none;
+  }
+
+  .crew-grid {
+    gap: 8px;
+  }
+
+  .player-card {
+    padding: 12px 4px 8px;
+  }
+
+  .psub {
+    font-size: 10.5px;
+  }
+
+  .pname {
+    font-size: 15px;
+  }
+
+  .splash-title {
+    letter-spacing: 0.24em;
+    text-indent: 0.24em;
+  }
+
+  .splash-tag {
+    letter-spacing: 0.18em;
+    font-size: 13px;
+  }
+}
+
+/* powers: table on wide screens, stacked list on phones */
+
+.narrow-only {
+  display: none;
+}
+
+.powers-row + .powers-row {
+  margin-top: 10px;
+}
+
+.powers-count {
+  margin-bottom: 4px;
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text);
+}
+
+.power-steps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.power-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 5px 2px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  font-size: 11px;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.power-step b {
+  font-family: var(--display);
+  font-size: 10px;
+  color: var(--text-faint);
+}
+
+.power-step.on {
+  border-color: rgba(255, 59, 92, 0.4);
+  color: #fca5b5;
+}
+
+.rules-table .rowhead {
+  white-space: nowrap;
+}
+
+.psub {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .wide-only {
+    display: none;
+  }
+
+  .narrow-only {
+    display: block;
+  }
 }

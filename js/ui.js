@@ -160,7 +160,7 @@
         'con 3 o más sabotajes ya promulgados.'
     },
     android: {
-      label: 'El Androide',
+      label: 'Androide',
       objective: 'Objetivo: tomar el mando',
       icon: 'bolt',
       text:
@@ -222,7 +222,7 @@
   // Cosmetic only: a station and a colour per seat, so the crew grid reads like
   // a ship's roster. None of it says anything about a player's hidden role.
   const STATIONS = [
-    'Navegación', 'Ingeniería', 'Médica', 'Comunicaciones', 'Seguridad',
+    'Navegación', 'Ingeniería', 'Médica', 'Enlace', 'Seguridad',
     'Ciencia', 'Pilotaje', 'Logística', 'Armamento', 'Soporte vital'
   ];
   const HUES = ['cyan', 'violet', 'teal', 'blue', 'green', 'pink', 'sky', 'orange', 'lime', 'indigo'];
@@ -540,6 +540,12 @@
       el('div', { class: 'divider short' }),
       el('div', { class: 'splash-actions' }, [
         el('button', { class: 'btn btn-primary btn-wide btn-lg', type: 'button', onClick: function () { goTo('setup'); } }, ['Iniciar']),
+        // Placeholder for a future feature: visible, never clickable.
+        el('button', { class: 'btn btn-wide btn-soon', type: 'button', disabled: true, 'aria-disabled': 'true', title: 'Próximamente' }, [
+          icon('sync'),
+          el('span', { text: 'Modo online' }),
+          el('span', { class: 'soon-badge', text: 'Próximamente' })
+        ]),
         el('button', { class: 'btn btn-ghost btn-wide', type: 'button', onClick: function () { openSheet('rules'); } }, ['Cómo se juega']),
         el('button', { class: 'btn btn-link', type: 'button', onClick: function () { openSheet('lore'); } }, ['Historia de la estación'])
       ])
@@ -652,7 +658,7 @@
     if (!ui.revealShown) {
       return overlay(
         el('div', { class: 'overlay-card handoff' }, [
-          el('div', { class: 'eyebrow', text: 'Entrega del dispositivo · ' + (ui.revealIndex + 1) + ' de ' + ids.length }),
+          el('div', { class: 'eyebrow', text: 'Entrega del dispositivo · ' + (ui.revealIndex + 1) + '\u00a0de\u00a0' + ids.length }),
           avatar(id, 'xl'),
           el('div', { class: 'pass-name', text: playerName(id) }),
           el('p', {
@@ -1503,8 +1509,10 @@
       list.appendChild(
         el('div', { class: 'reveal-row ' + player.role + (player.role === 'android' ? ' was-android' : '') }, [
           avatar(player.id, 'sm'),
-          el('span', { class: 'rname', text: player.name }),
-          el('span', { class: 'badge' + (player.isolated ? ' isolated' : ''), text: player.isolated ? 'aislado' : 'a bordo' }),
+          el('span', { class: 'rinfo' }, [
+            el('span', { class: 'rname', text: player.name }),
+            el('span', { class: 'badge' + (player.isolated ? ' isolated' : ''), text: player.isolated ? 'aislado' : 'a bordo' })
+          ]),
           el('span', { class: 'rrole', text: info.label })
         ])
       );
@@ -1583,7 +1591,7 @@
     table.appendChild(
       el('thead', {}, [
         el('tr', {}, [
-          el('th', { text: 'Jugadores' }),
+          el('th', { text: 'Jug.' }),
           el('th', { text: 'Tripulación' }),
           el('th', { text: 'Infiltrados' }),
           el('th', { text: 'Androide' })
@@ -1615,9 +1623,9 @@
     ];
 
     const table = el('table', { class: 'rules-table' });
-    const head = el('tr', {}, [el('th', { text: 'Jugadores' })]);
+    const head = el('tr', {}, [el('th', { text: 'Jug.' })]);
     for (let sabotage = 1; sabotage <= 5; sabotage += 1) {
-      head.appendChild(el('th', { text: 'Sab. ' + sabotage }));
+      head.appendChild(el('th', { text: sabotage + '.º' }));
     }
     table.appendChild(el('thead', {}, [head]));
 
@@ -1626,12 +1634,31 @@
       const row = el('tr', {}, [el('th', { class: 'rowhead', text: group[0] })]);
       for (let sabotage = 1; sabotage <= 5; sabotage += 1) {
         const power = group[1][sabotage];
-        row.appendChild(el('td', { text: power ? POWER_LONG[power] || 'Fin' : '—' }));
+        row.appendChild(el('td', { text: power ? POWER_SHORT[power] : '—' }));
       }
       body.appendChild(row);
     });
     table.appendChild(body);
     return table;
+  }
+
+  // Same data as powersTable(), stacked for narrow phones.
+  function powersList() {
+    const list = el('div', { class: 'powers-list narrow-only' });
+    [['5–6', 5], ['7–8', 7], ['9–10', 9]].forEach(function (group) {
+      const chips = el('div', { class: 'power-steps' });
+      for (let sabotage = 1; sabotage <= 5; sabotage += 1) {
+        const power = E.POWER_TABLE[group[1]][sabotage];
+        chips.appendChild(
+          el('span', { class: 'power-step' + (power ? ' on' : '') }, [
+            el('b', { text: String(sabotage) }),
+            power ? POWER_SHORT[power] : '—'
+          ])
+        );
+      }
+      list.appendChild(el('div', { class: 'powers-row' }, [el('div', { class: 'powers-count', text: group[0] + ' jugadores' }), chips]));
+    });
+    return list;
   }
 
   function rulesSheet() {
@@ -1646,7 +1673,7 @@
         text: 'Siempre hay un solo Androide. El resto se reparte entre Tripulación e Infiltrados.'
       })
     );
-    wrap.appendChild(rolesTable());
+    wrap.appendChild(el('div', { class: 'table-wrap' }, [rolesTable()]));
 
     RULES_SECTIONS.forEach(function (section) {
       wrap.appendChild(el('h3', { class: 'sheet-h', text: section.title }));
@@ -1663,7 +1690,16 @@
           'de 7 o más.'
       })
     );
-    wrap.appendChild(powersTable());
+    wrap.appendChild(el('div', { class: 'table-wrap wide-only' }, [powersTable()]));
+    wrap.appendChild(powersList());
+    wrap.appendChild(
+      el('p', {
+        class: 'fine left',
+        text:
+          'Columnas: sabotaje número 1 a 5. Escáner = escáner biométrico · Cadena = cadena de ' +
+          'mando · Aislar = aislamiento en el módulo 4.'
+      })
+    );
 
     return wrap;
   }
