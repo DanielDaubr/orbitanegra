@@ -15,11 +15,9 @@ function makeGame(count, seed) {
   return E.createGame({ playerNames: names, seed: seed === undefined ? 42 : seed });
 }
 
-function aliveVotes(state, yes) {
+// Nobody leaves the table, so every player votes, isolated or not.
+function allVotes(state, yes) {
   return state.players
-    .filter(function (p) {
-      return p.alive;
-    })
     .map(function (p) {
       return { playerId: p.id, yes: yes };
     });
@@ -29,13 +27,13 @@ function passGovernment(state) {
   const candidate = E.eligibleChancellorIds(state)[0];
   assert.notEqual(candidate, undefined, 'expected at least one eligible chancellor');
   assert.equal(E.nominateChancellor(state, candidate).ok, true);
-  return E.castVotes(state, aliveVotes(state, true));
+  return E.castVotes(state, allVotes(state, true));
 }
 
 function failGovernment(state) {
   const candidate = E.eligibleChancellorIds(state)[0];
   E.nominateChancellor(state, candidate);
-  return E.castVotes(state, aliveVotes(state, false));
+  return E.castVotes(state, allVotes(state, false));
 }
 
 function playerWithRole(state, role) {
@@ -194,20 +192,19 @@ test('term limits block the previous chancellor and president', function () {
 
   const eligible = E.eligibleChancellorIds(state);
   assert.equal(eligible.indexOf(0), -1, 'current president is never eligible');
-  assert.equal(eligible.indexOf(1), -1, 'previous president is ineligible with 6 alive');
+  assert.equal(eligible.indexOf(1), -1, 'previous president is ineligible with 6 players');
   assert.equal(eligible.indexOf(2), -1, 'previous chancellor is ineligible');
   assert.ok(eligible.indexOf(3) !== -1, 'an untarnished player stays eligible');
 });
 
-test('with five players alive the previous president becomes eligible', function () {
-  const state = makeGame(6, 11);
-  state.players[5].alive = false;
+test('in a five player game the previous president stays eligible', function () {
+  const state = makeGame(5, 11);
   state.presidentId = 0;
   state.previousPresidentId = 1;
   state.previousChancellorId = 2;
 
   const eligible = E.eligibleChancellorIds(state);
-  assert.ok(eligible.indexOf(1) !== -1, 'previous president is eligible with 5 alive');
+  assert.ok(eligible.indexOf(1) !== -1, 'previous president is eligible with 5 players');
   assert.equal(eligible.indexOf(2), -1, 'previous chancellor stays ineligible');
   assert.equal(eligible.indexOf(0), -1, 'current president stays ineligible');
 });
@@ -243,8 +240,12 @@ test('the power table matches the player count', function () {
   assert.equal(E.POWER_TABLE[9][1], 'investigate');
   assert.equal(E.POWER_TABLE[9][3], 'investigate', '9 players: three investigates');
   assert.equal(E.POWER_TABLE[9][4], 'special-election', '9 players: special election on slot 4');
-  assert.equal(E.POWER_TABLE[9][5], 'execute');
-  assert.equal(E.POWER_TABLE[10][5], 'execute');
+  assert.equal(E.POWER_TABLE[9][5], 'isolate');
+  assert.equal(E.POWER_TABLE[10][5], 'isolate');
+  assert.equal(E.POWER_TABLE[5][4], 'isolate');
+  Object.keys(E.POWER_TABLE).forEach(function (count) {
+    assert.equal(E.POWER_TABLE[count].indexOf('execute'), -1, count + ' players: nobody is executed');
+  });
 });
 
 test('the power table drives the granted power end to end', function () {
@@ -277,7 +278,7 @@ test('the android wins as chancellor only once three sabotage policies are enact
     state.chancellorId = null;
 
     E.nominateChancellor(state, android.id);
-    return E.castVotes(state, aliveVotes(state, true));
+    return E.castVotes(state, allVotes(state, true));
   }
 
   const winning = electAndroidWith(3);
@@ -289,32 +290,116 @@ test('the android wins as chancellor only once three sabotage policies are enact
   assert.equal(notYet.phase, 'legislative-president');
 });
 
-test('executing the android wins immediately for the crew', function () {
+test('isolating the android wins immediately for the crew', function () {
   const state = makeTable({ players: 7, seed: 77, policies: { crew: 0, sabotage: 4 } });
   const android = playerWithRole(state, 'android');
-  state.pendingPower = 'execute';
+  state.pendingPower = 'isolate';
   state.phase = 'power';
   state.presidentId = playerWithRole(state, 'crew').id;
 
   const result = E.usePower(state, { targetId: android.id });
   assert.equal(result.ok, true);
   assert.equal(state.winner, 'crew');
-  assert.equal(state.winReason, 'android-executed');
+  assert.equal(state.winReason, 'android-isolated');
   assert.equal(state.phase, 'game-over');
 });
 
-test('execution never reveals the role of a non-android player', function () {
+test('isolation keeps the player at the table and never reveals their role', function () {
   const state = makeTable({ players: 7, seed: 78, policies: { crew: 0, sabotage: 4 } });
   const crew = playerWithRole(state, 'crew');
-  state.pendingPower = 'execute';
+  state.pendingPower = 'isolate';
   state.phase = 'power';
   state.presidentId = playerWithRole(state, 'infiltrator').id;
 
   E.usePower(state, { targetId: crew.id });
-  assert.equal(state.players[crew.id].alive, false);
+  assert.equal(state.players[crew.id].isolated, true);
+  assert.equal(state.players.length, 7, 'nobody leaves the table');
   assert.equal(state.phase, 'nomination');
   assert.equal(state.winner, null);
   assert.equal(JSON.stringify(state.events).indexOf('"role"'), -1);
+  assert.equal(E.publicView(state).players[crew.id].isolated, true, 'isolation is public');
+});
+
+test('the Capitán cannot isolate themselves or an already isolated player', function () {
+  const state = makeTable({ players: 7, seed: 79, policies: { crew: 0, sabotage: 4 } });
+  state.pendingPower = 'isolate';
+  state.phase = 'power';
+  state.presidentId = 0;
+  state.players[3].isolated = true;
+  const snapshot = JSON.stringify(state);
+
+  assert.equal(E.usePower(state, { targetId: 0 }).error, 'cannot-isolate-self');
+  assert.equal(E.usePower(state, { targetId: 3 }).error, 'already-isolated');
+  assert.equal(JSON.stringify(state), snapshot, 'rejected isolations must not mutate state');
+  assert.equal(E.isolationTargetIds(state).indexOf(0), -1);
+  assert.equal(E.isolationTargetIds(state).indexOf(3), -1);
+  assert.equal(E.isolationTargetIds(state).length, 5);
+});
+
+test('isolated players still vote and can serve as Capitán or reparador', function () {
+  const state = makeGame(6, 80);
+  state.players.forEach(function (p) {
+    if (p.id !== state.presidentId) {
+      p.isolated = true;
+    }
+  });
+  state.players[state.presidentId].isolated = true;
+
+  const eligible = E.eligibleChancellorIds(state);
+  assert.ok(eligible.length > 0, 'isolated players remain eligible as reparador');
+  assert.equal(E.nominateChancellor(state, eligible[0]).ok, true);
+  const result = E.castVotes(state, allVotes(state, true));
+  assert.equal(result.ok, true, 'every isolated player votes');
+  assert.equal(state.lastVote.yes, 6);
+  assert.equal(state.phase, 'legislative-president');
+});
+
+test('an isolated reparador legislates in the open', function () {
+  const state = makeTable({
+    players: 6,
+    seed: 81,
+    policies: { crew: 1, sabotage: 1 },
+    presidentHand: ['sabotage', 'crew', 'sabotage']
+  });
+  state.presidentId = 0;
+  state.chancellorId = 1;
+  state.phase = 'legislative-president';
+  state.players[1].isolated = true;
+
+  assert.equal(E.publicView(state).openHand, null, 'the Capitán hand is never public');
+
+  assert.equal(E.presidentDiscard(state, 0).ok, true);
+  const view = E.publicView(state);
+  assert.deepEqual(view.openHand, ['crew', 'sabotage'], 'the two received cards are public');
+  const shown = state.events.filter(function (e) { return e.type === 'open-hand'; });
+  assert.equal(shown.length, 1);
+  assert.deepEqual(shown[0].cards, ['crew', 'sabotage']);
+
+  E.chancellorDiscard(state, 1);
+  const discard = state.events.filter(function (e) { return e.type === 'open-discard'; });
+  assert.equal(discard.length, 1, 'the discard is logged publicly');
+  assert.equal(discard[0].discarded, 'crew');
+  assert.equal(discard[0].enacted, 'sabotage');
+  assert.equal(E.publicView(state).openHand, null, 'nothing stays open after the session');
+  assert.equal(conservation(state), 17);
+});
+
+test('a reparador who is not isolated keeps a secret hand', function () {
+  const state = makeTable({
+    players: 6,
+    seed: 82,
+    policies: { crew: 0, sabotage: 0 },
+    presidentHand: ['sabotage', 'crew', 'sabotage']
+  });
+  state.presidentId = 0;
+  state.chancellorId = 1;
+  state.phase = 'legislative-president';
+
+  assert.equal(E.presidentDiscard(state, 0).ok, true);
+  assert.equal(E.publicView(state).openHand, null);
+  assert.equal(E.chancellorDiscard(state, 0).ok, true);
+  const leaks = state.events.filter(function (e) { return e.type === 'open-hand' || e.type === 'open-discard'; });
+  assert.equal(leaks.length, 0, 'a normal reparador never exposes cards');
 });
 
 test('six crew policies win for the crew', function () {
@@ -456,14 +541,14 @@ test('illegal calls are rejected without mutating state', function () {
   const state = makeGame(6, 55);
   const snapshot = JSON.stringify(state);
 
-  assert.equal(E.castVotes(state, aliveVotes(state, true)).error, 'wrong-phase');
+  assert.equal(E.castVotes(state, allVotes(state, true)).error, 'wrong-phase');
   assert.equal(E.presidentDiscard(state, 0).error, 'wrong-phase');
   assert.equal(E.chancellorDiscard(state, 0).error, 'wrong-phase');
   assert.equal(E.proposeVeto(state).error, 'wrong-phase');
   assert.equal(E.answerVeto(state, true).error, 'wrong-phase');
   assert.equal(E.usePower(state, { targetId: 1 }).error, 'wrong-phase');
   assert.equal(E.nominateChancellor(state, state.presidentId).error, 'ineligible-chancellor');
-  assert.equal(E.nominateChancellor(state, 99).error, 'not-alive');
+  assert.equal(E.nominateChancellor(state, 99).error, 'unknown-player');
 
   assert.equal(JSON.stringify(state), snapshot, 'rejected calls must not mutate state');
 });
@@ -475,11 +560,11 @@ test('malformed ballots are rejected', function () {
 
   assert.equal(E.castVotes(state, []).error, 'vote-count');
   assert.equal(
-    E.castVotes(state, aliveVotes(state, true).concat([{ playerId: 0, yes: true }])).error,
+    E.castVotes(state, allVotes(state, true).concat([{ playerId: 0, yes: true }])).error,
     'vote-count'
   );
 
-  const duplicated = aliveVotes(state, true);
+  const duplicated = allVotes(state, true);
   duplicated[1] = { playerId: duplicated[0].playerId, yes: true };
   assert.equal(E.castVotes(state, duplicated).error, 'duplicate-vote');
 
@@ -575,9 +660,6 @@ function randomMove(state, rand) {
 
   if (state.phase === 'voting') {
     const votes = state.players
-      .filter(function (p) {
-        return p.alive;
-      })
       .map(function (p) {
         return { playerId: p.id, yes: rand() < 0.55 };
       });
@@ -610,11 +692,12 @@ function randomMove(state, rand) {
   }
 
   if (state.phase === 'power') {
-    const alive = state.players.filter(function (p) {
-      return p.alive;
-    });
-    const target = alive[Math.floor(rand() * alive.length)];
-    const result = E.usePower(state, { targetId: target.id });
+    const pool = state.pendingPower === 'isolate'
+      ? E.isolationTargetIds(state)
+      : state.players.map(function (p) { return p.id; });
+    assert.ok(pool.length > 0, 'a power must always have a target');
+    const target = pool[Math.floor(rand() * pool.length)];
+    const result = E.usePower(state, { targetId: target });
     assert.equal(result.ok, true, 'power use failed: ' + result.error);
     return;
   }
@@ -641,22 +724,31 @@ function checkInvariants(state, label) {
   }).length;
   assert.equal(androidCount, 1, label + ': android count');
 
-  const aliveIds = state.players
-    .filter(function (p) {
-      return p.alive;
-    })
-    .map(function (p) {
-      return p.id;
-    });
-  assert.equal(new Set(aliveIds).size, aliveIds.length, label + ': duplicate alive id');
+  const isolated = state.players.filter(function (p) {
+    return p.isolated;
+  });
+  assert.ok(isolated.length <= 2, label + ': at most two isolations exist in the power table');
+  state.players.forEach(function (p) {
+    assert.equal(p.alive, undefined, label + ': nobody has a life flag any more');
+  });
+  if (state.phase !== 'game-over') {
+    assert.ok(
+      isolated.every(function (p) { return p.role !== 'android'; }),
+      label + ': an isolated android must have ended the game'
+    );
+  }
+
+  const view = E.publicView(state);
+  const chancellorIsolated = state.chancellorId !== null && state.players[state.chancellorId].isolated;
+  if ((state.phase === 'legislative-chancellor' || state.phase === 'veto-request') && chancellorIsolated) {
+    assert.deepEqual(view.openHand, state.chancellorHand, label + ': isolated reparador hand must be public');
+  } else {
+    assert.equal(view.openHand, null, label + ': a hand leaked into the public view');
+  }
 
   if (state.phase !== 'game-over') {
-    // A president may legitimately airlock themselves, which can end the game.
-    assert.ok(state.players[state.presidentId].alive, label + ': dead president during live play');
-    assert.ok(aliveIds.length >= 2, label + ': too few players alive to continue');
-
-    if (state.chancellorId !== null) {
-      assert.ok(state.players[state.chancellorId].alive, label + ': dead chancellor');
+    if (state.phase === 'power' && state.pendingPower === 'isolate') {
+      assert.ok(E.isolationTargetIds(state).length > 0, label + ': isolation without a target');
     }
 
     if (state.phase !== 'power') {

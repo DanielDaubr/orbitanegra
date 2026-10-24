@@ -9,7 +9,12 @@
  *   infiltrator -> fascist
  *   android     -> hitler
  *   sabotage    -> fascist policy
- *   president / chancellor -> same offices
+ *   president   -> Capitán
+ *   chancellor  -> the crew member designated to repair a zone ("reparador")
+ *   execute     -> isolate (Aislamiento en el módulo 4)
+ *
+ * Nobody dies. An isolated player keeps voting and can still be Capitán or
+ * reparador, but legislates in the open whenever they are the reparador.
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) {
@@ -31,12 +36,12 @@
 
   // Indexed by the number of sabotage policies already enacted.
   const POWER_TABLE = {
-    5: [null, null, 'investigate', 'special-election', 'execute', 'execute', 'win'],
-    6: [null, null, 'investigate', 'special-election', 'execute', 'execute', 'win'],
-    7: [null, 'investigate', 'investigate', 'special-election', 'execute', 'execute', 'win'],
-    8: [null, 'investigate', 'investigate', 'special-election', 'execute', 'execute', 'win'],
-    9: [null, 'investigate', 'investigate', 'investigate', 'special-election', 'execute', 'win'],
-    10: [null, 'investigate', 'investigate', 'investigate', 'special-election', 'execute', 'win']
+    5: [null, null, 'investigate', 'special-election', 'isolate', 'isolate', 'win'],
+    6: [null, null, 'investigate', 'special-election', 'isolate', 'isolate', 'win'],
+    7: [null, 'investigate', 'investigate', 'special-election', 'isolate', 'isolate', 'win'],
+    8: [null, 'investigate', 'investigate', 'special-election', 'isolate', 'isolate', 'win'],
+    9: [null, 'investigate', 'investigate', 'investigate', 'special-election', 'isolate', 'win'],
+    10: [null, 'investigate', 'investigate', 'investigate', 'special-election', 'isolate', 'win']
   };
 
   const TOTAL_POLICIES = 17;
@@ -83,34 +88,22 @@
     return array;
   }
 
-  function aliveIds(state) {
-    const ids = [];
-    for (let i = 0; i < state.players.length; i += 1) {
-      if (state.players[i].alive) {
-        ids.push(state.players[i].id);
-      }
-    }
-    return ids;
+  function playerIds(state) {
+    return state.players.map(function (player) {
+      return player.id;
+    });
   }
 
-  function aliveCount(state) {
-    return aliveIds(state).length;
+  function isPlayer(state, playerId) {
+    return isInteger(playerId) && Boolean(state.players[playerId]);
   }
 
-  function isAlive(state, playerId) {
-    const player = state.players[playerId];
-    return Boolean(player) && player.alive;
+  function isIsolated(state, playerId) {
+    return isPlayer(state, playerId) && state.players[playerId].isolated;
   }
 
-  function nextAliveAfter(state, playerId) {
-    const total = state.playerCount;
-    for (let step = 1; step <= total; step += 1) {
-      const candidate = (playerId + step) % total;
-      if (state.players[candidate] && state.players[candidate].alive) {
-        return candidate;
-      }
-    }
-    return playerId;
+  function nextSeatAfter(state, playerId) {
+    return (playerId + 1) % state.playerCount;
   }
 
   function pushEvent(state, event) {
@@ -163,7 +156,7 @@
         id: i,
         name: String(names[i] || 'Jugador ' + (i + 1)),
         role: null,
-        alive: true,
+        isolated: false,
         investigated: false
       });
     }
@@ -228,13 +221,15 @@
   }
 
   function eligibleChancellorIds(state) {
-    const alive = aliveIds(state);
-    const previousPresidentLimited = alive.length > 5;
+    const seated = playerIds(state);
+    // Nobody leaves the table, so the original "5 or fewer alive" exception
+    // only ever applies to 5-player games.
+    const previousPresidentLimited = seated.length > 5;
 
     function build(limitPresident, limitChancellor) {
       const out = [];
-      for (let i = 0; i < alive.length; i += 1) {
-        const id = alive[i];
+      for (let i = 0; i < seated.length; i += 1) {
+        const id = seated[i];
         if (id === state.presidentId) {
           continue;
         }
@@ -265,8 +260,8 @@
     if (state.phase !== 'nomination') {
       return fail('wrong-phase');
     }
-    if (!isAlive(state, chancellorId)) {
-      return fail('not-alive');
+    if (!isPlayer(state, chancellorId)) {
+      return fail('unknown-player');
     }
     if (eligibleChancellorIds(state).indexOf(chancellorId) === -1) {
       return fail('ineligible-chancellor');
@@ -282,8 +277,8 @@
     if (!Array.isArray(votes)) {
       return 'invalid-votes';
     }
-    const alive = aliveIds(state);
-    if (votes.length !== alive.length) {
+    const seated = playerIds(state);
+    if (votes.length !== seated.length) {
       return 'vote-count';
     }
 
@@ -293,7 +288,7 @@
       if (!vote || typeof vote !== 'object') {
         return 'invalid-votes';
       }
-      if (!isInteger(vote.playerId) || alive.indexOf(vote.playerId) === -1) {
+      if (!isInteger(vote.playerId) || seated.indexOf(vote.playerId) === -1) {
         return 'invalid-voter';
       }
       if (seen[vote.playerId]) {
@@ -454,6 +449,11 @@
     state.chancellorHand = state.presidentHand.slice();
     state.presidentHand = [];
     state.phase = 'legislative-chancellor';
+    if (isIsolated(state, state.chancellorId)) {
+      // An isolated reparador lost the right to a secret hand: the two cards
+      // the Capitán passed are shown to the whole table.
+      pushEvent(state, { type: 'open-hand', chancellorId: state.chancellorId, cards: state.chancellorHand.slice() });
+    }
     return { ok: true, discarded: discarded, chancellorHand: state.chancellorHand.slice() };
   }
 
@@ -469,6 +469,9 @@
     const discarded = state.chancellorHand[0];
     state.chancellorHand = [];
     state.discards.push(discarded);
+    if (isIsolated(state, state.chancellorId)) {
+      pushEvent(state, { type: 'open-discard', chancellorId: state.chancellorId, discarded: discarded, enacted: enacted });
+    }
 
     const outcome = enactPolicy(state, enacted, 'legislation');
     if (outcome === 'game-over') {
@@ -541,8 +544,8 @@
     }
 
     const targetId = action && action.targetId;
-    if (!isInteger(targetId) || !isAlive(state, targetId)) {
-      return fail('not-alive');
+    if (!isPlayer(state, targetId)) {
+      return fail('unknown-player');
     }
 
     if (power === 'investigate') {
@@ -568,13 +571,19 @@
       return { ok: true, power: power, targetId: targetId, phase: state.phase };
     }
 
-    if (power === 'execute') {
-      state.players[targetId].alive = false;
-      pushEvent(state, { type: 'player-executed', playerId: targetId });
+    if (power === 'isolate') {
+      if (targetId === state.presidentId) {
+        return fail('cannot-isolate-self');
+      }
+      if (state.players[targetId].isolated) {
+        return fail('already-isolated');
+      }
+      state.players[targetId].isolated = true;
+      pushEvent(state, { type: 'player-isolated', playerId: targetId });
       state.pendingPower = null;
 
       if (state.players[targetId].role === 'android') {
-        endGame(state, 'crew', 'android-executed');
+        endGame(state, 'crew', 'android-isolated');
         return { ok: true, power: power, targetId: targetId, winner: state.winner, winReason: state.winReason };
       }
 
@@ -586,6 +595,12 @@
     return fail('unknown-power');
   }
 
+  function isolationTargetIds(state) {
+    return playerIds(state).filter(function (id) {
+      return id !== state.presidentId && !state.players[id].isolated;
+    });
+  }
+
   // --------------------------------------------------------------------- turns
 
   function advancePresident(state) {
@@ -594,7 +609,7 @@
       origin = state.resumeAfterId;
       state.resumeAfterId = null;
     }
-    state.presidentId = nextAliveAfter(state, origin);
+    state.presidentId = nextSeatAfter(state, origin);
     state.chancellorId = null;
   }
 
@@ -615,7 +630,7 @@
         return {
           id: player.id,
           name: player.name,
-          alive: player.alive,
+          isolated: player.isolated,
           investigated: player.investigated
         };
       }),
@@ -629,6 +644,12 @@
       previousPresidentId: state.previousPresidentId,
       previousChancellorId: state.previousChancellorId,
       pendingPower: state.pendingPower,
+      openHand:
+        (state.phase === 'legislative-chancellor' || state.phase === 'veto-request') &&
+        isIsolated(state, state.chancellorId)
+          ? state.chancellorHand.slice()
+          : null,
+      isolationTargetIds: isolationTargetIds(state),
       eligibleChancellorIds: eligibleChancellorIds(state),
       lastVote: state.lastVote
         ? {
@@ -664,7 +685,7 @@
       role: role.role,
       allies: role.allies,
       hand: hand,
-      alive: player.alive,
+      isolated: player.isolated,
       canVeto:
         state.phase === 'legislative-chancellor' &&
         state.chancellorId === playerId &&
@@ -686,6 +707,7 @@
     publicView: publicView,
     privateView: privateView,
     eligibleChancellorIds: eligibleChancellorIds,
+    isolationTargetIds: isolationTargetIds,
     nominateChancellor: nominateChancellor,
     castVotes: castVotes,
     presidentDiscard: presidentDiscard,

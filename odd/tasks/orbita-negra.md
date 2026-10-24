@@ -36,10 +36,10 @@ leak on the handoff screen, the game is not playable with real people at a table
 | Secret Hitler | Órbita Negra |
 | --- | --- |
 | Liberal / Fascist / Hitler | `crew` / `infiltrator` / `android` |
-| Liberal / Fascist policy | `crew` / `sabotage` policy |
-| President / Chancellor | Capitán / Primer Oficial |
+| Liberal / Fascist policy | Protocolo de reparación (`crew`) / Sabotaje (`sabotage`) |
+| President / Chancellor | Capitán / Reparador (tripulante designado para reparar una zona) |
 | Investigate / Special Election | Escáner biométrico / Cadena de mando |
-| Execution | Expulsión por la esclusa |
+| Execution | Aislamiento en el módulo 4 (`isolate`) — nobody dies |
 | Veto | Anulación conjunta |
 | Election tracker | Alerta de motín |
 
@@ -52,7 +52,7 @@ leak on the handoff screen, the game is not playable with real people at a table
 - [x] **T3** Election flow — nomination, simultaneous voting (`yes > no` passes, a
       tie fails), 3 failed elections enact the top deck policy with
       `source: 'tracker'`, term limits.
-- [x] **T4** Powers — `investigate`, `special-election`, `execute` via the
+- [x] **T4** Powers — `investigate`, `special-election`, `isolate` (was `execute`, see T16) via the
       per-count `POWER_TABLE`; veto unlocks at `sabotage >= 5`.
 - [x] **T5** Win conditions — `WIN_POLICIES = 6` for both factions, `android`
       executed, `android` elected Primer Oficial at `sabotage >= 3`. The 6/6 count
@@ -91,6 +91,18 @@ leak on the handoff screen, the game is not playable with real people at a table
       role portraits, timeline log. Nominations and power targets now need an
       explicit "Confirmar" after picking a player. Icons are inline SVG injected
       into empty spans so button labels stay plain text.
+
+- [x] **T16** "Nadie muere" — execution replaced by isolation in the módulo 4.
+      `player.alive` is gone; `player.isolated` is public. Isolated players keep
+      voting and can be Capitán or reparador. An isolated reparador legislates in
+      the open: `open-hand` (the 2 cards received) and `open-discard` events, plus
+      `publicView.openHand` while they decide. Isolating the `android` wins for the
+      crew (`android-isolated`). The Capitán cannot isolate themselves
+      (`cannot-isolate-self`) or a player already isolated (`already-isolated`);
+      `isolationTargetIds()` lists valid targets. Term limits now use seat count,
+      so the previous Capitán is only eligible in 5-player games. Balance probe,
+      3 000 random games per player count on each engine: crew 16.2% before and
+      after; android wins by isolation 14.6% vs 14.4% by execution.
 
 ## Progress and evidence
 

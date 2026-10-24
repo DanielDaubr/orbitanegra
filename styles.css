@@ -440,10 +440,6 @@ body {
   color: var(--text-dim);
 }
 
-.badge.dead {
-  border-color: rgba(255, 59, 92, 0.5);
-  color: var(--red);
-}
 
 /* ------------------------------------------------------------------- splash */
 
@@ -989,18 +985,8 @@ body {
   color: var(--cyan);
 }
 
-.player-card.is-dead {
-  opacity: 0.4;
-  filter: grayscale(0.8);
-}
 
-.player-card.is-dead .pname {
-  text-decoration: line-through;
-}
 
-.player-card.is-dead .psub {
-  color: var(--red);
-}
 
 .scan-tag {
   position: absolute;
@@ -1867,4 +1853,91 @@ body {
   .overlay {
     animation: none;
   }
+}
+
+/* ---------------------------------------------------- isolation (módulo 4) */
+
+.player-card.is-isolated {
+  border-style: dashed;
+  border-color: rgba(167, 139, 250, 0.7);
+  background: repeating-linear-gradient(135deg, rgba(167, 139, 250, 0.07) 0 8px, transparent 8px 16px), rgba(4, 10, 22, 0.7);
+}
+
+.player-card.is-isolated .psub {
+  color: var(--violet);
+}
+
+.iso-tag {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  color: var(--violet);
+  font-size: 14px;
+}
+
+.badge.isolated {
+  border-color: rgba(167, 139, 250, 0.6);
+  color: var(--violet);
+}
+
+.log-entry.tag-isolate { --tone: var(--violet); }
+.log-entry.tag-isolate .log-text { color: #c4b5fd; }
+
+.open-hand {
+  margin: 14px 0;
+  padding: 12px;
+  border: 1.5px dashed var(--violet);
+  border-radius: 14px;
+  background: rgba(167, 139, 250, 0.08);
+  text-align: center;
+}
+
+.open-hand-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--display);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #c4b5fd;
+}
+
+.open-hand-sub {
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.open-hand-cards {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.mini-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mini-card.crew {
+  border: 1px solid var(--cyan);
+  color: var(--cyan-hi);
+  background: var(--cyan-soft);
+}
+
+.mini-card.sabotage {
+  border: 1px solid var(--red);
+  color: #ffc2cd;
+  background: var(--red-soft);
 }

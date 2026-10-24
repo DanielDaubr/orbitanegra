@@ -147,8 +147,8 @@
       objective: 'Objetivo: salvar la nave',
       icon: 'shield',
       text:
-        'Sos parte de la tripulación leal. Ganás si se promulgan 6 directivas de ' +
-        'Tripulación o si el Androide es expulsado por la esclusa.'
+        'Sos parte de la tripulación leal. Ganás si se activan 6 protocolos de ' +
+        'reparación o si el Androide queda aislado en el módulo 4.'
     },
     infiltrator: {
       label: 'Infiltrado',
@@ -156,7 +156,7 @@
       icon: 'bolt',
       text:
         'Saboteás la nave desde adentro. Conocés a tus cómplices y al Androide. ' +
-        'Ganás con 6 directivas de Sabotaje o si el Androide llega a Primer Oficial ' +
+        'Ganás con 6 sabotajes o si el Androide es elegido reparador ' +
         'con 3 o más sabotajes ya promulgados.'
     },
     android: {
@@ -164,57 +164,59 @@
       objective: 'Objetivo: tomar el mando',
       icon: 'bolt',
       text:
-        'Nadie sabe quién sos, salvo los Infiltrados. Si te expulsan, pierden en el acto. ' +
-        'Si te nombran Primer Oficial con 3 o más sabotajes, ganás antes de que se ' +
-        'promulgue ninguna directiva.'
+        'Nadie sabe quién sos, salvo los Infiltrados. Si te aíslan en el módulo 4, pierden ' +
+        'en el acto. Si te eligen reparador con 3 o más sabotajes, ganás antes de que se ' +
+        'active ningún protocolo.'
     }
   };
 
   const POLICY_INFO = {
-    crew: { label: 'Tripulación', icon: 'shield' },
+    crew: { label: 'Reparación', icon: 'shield' },
     sabotage: { label: 'Sabotaje', icon: 'bolt' }
   };
 
   const POWER_SHORT = {
     investigate: 'Escáner',
     'special-election': 'Cadena',
-    execute: 'Esclusa',
+    isolate: 'Aislar',
     win: 'Fin'
   };
 
   const POWER_ICON = {
     investigate: 'scanner',
     'special-election': 'chain',
-    execute: 'airlock',
+    isolate: 'airlock',
     win: 'end'
   };
 
   const POWER_LONG = {
     investigate: 'Escáner biométrico',
     'special-election': 'Cadena de mando',
-    execute: 'Expulsión por la esclusa'
+    isolate: 'Aislamiento en el módulo 4'
   };
 
   const POWER_HINT = {
     investigate: 'Elegí a un jugador para conocer si pertenece a la Tripulación o a los Infiltrados. El Androide se lee como infiltrado.',
     'special-election': 'Elegí a cualquier jugador para que asuma como Capitán en el próximo gobierno. Después la cadena vuelve a su orden normal.',
-    execute: 'Elegí a un jugador para expulsarlo por la esclusa. Su rol no se revela.'
+    isolate:
+      'Elegí a un jugador para aislarlo en el módulo 4. Sigue votando y puede gobernar, pero si lo ' +
+      'eligen reparador juega con las cartas a la vista. Si es el Androide, gana la Tripulación.'
   };
 
   const PHASE_LABEL = {
     nomination: 'Nominación',
     voting: 'Votación',
-    'legislative-president': 'Sesión legislativa',
-    'legislative-chancellor': 'Sesión legislativa',
+    'legislative-president': 'Sesión de reparación',
+    'legislative-chancellor': 'Sesión de reparación',
     'veto-request': 'Anulación conjunta',
     power: 'Poder del Capitán',
     'game-over': 'Partida terminada'
   };
 
   const WIN_REASON = {
-    policies: 'por completar la tabla de directivas',
-    'android-executed': 'porque expulsaron al Androide',
-    'android-chancellor': 'porque el Androide llegó a Primer Oficial'
+    policies: 'por completar su tabla de protocolos',
+    'android-isolated': 'porque aislaron al Androide en el módulo 4',
+    'android-chancellor': 'porque el Androide fue elegido reparador'
   };
 
   // Cosmetic only: a station and a colour per seat, so the crew grid reads like
@@ -325,14 +327,11 @@
     return el('span', { class: 'avatar hue-' + hueOf(id) + (extraClass ? ' ' + extraClass : '') }, [icon('user')]);
   }
 
-  function aliveIds() {
-    return game.players
-      .filter(function (p) {
-        return p.alive;
-      })
-      .map(function (p) {
-        return p.id;
-      });
+  // Nobody leaves the table: isolated players still vote and act.
+  function seatedIds() {
+    return game.players.map(function (p) {
+      return p.id;
+    });
   }
 
   function gameNumber() {
@@ -355,7 +354,7 @@
     }
     const phase = game.phase;
     if (phase === 'voting') {
-      const voters = aliveIds();
+      const voters = seatedIds();
       return ui.voteIndex < voters.length ? voters[ui.voteIndex] : null;
     }
     if (
@@ -739,7 +738,7 @@
     }
     panel.appendChild(
       el('div', { class: 'track' }, [
-        el('div', { class: 'track-name crew-c' }, [el('span', { text: 'Tripulación' }), el('small', { text: '6 para ganar' })]),
+        el('div', { class: 'track-name crew-c' }, [el('span', { text: 'Reparación' }), el('small', { text: '6 para ganar' })]),
         crewCells
       ])
     );
@@ -785,22 +784,23 @@
   }
 
   function playerSubtitle(player, gv) {
-    if (!player.alive) {
-      return 'Esclusa';
-    }
     if (player.id === gv.presidentId) {
       return 'Capitán';
     }
     if (player.id === gv.chancellorId) {
-      return '1.º Oficial';
+      return 'Reparador';
+    }
+    if (player.isolated) {
+      return 'Módulo 4';
     }
     return STATIONS[player.id % STATIONS.length];
   }
 
   function rosterPanel(gv) {
     const panel = el('section', { class: 'panel' });
+    const isolatedCount = gv.players.filter(function (p) { return p.isolated; }).length;
     panel.appendChild(panelHead('Tripulación', 'user', el('span', { class: 'counters' }, [
-      el('span', {}, ['A bordo ', el('b', { text: String(aliveIds().length) })])
+      el('span', {}, ['Aislados ', el('b', { text: String(isolatedCount) })])
     ])));
 
     const roster = el('div', { class: 'crew-grid' });
@@ -814,13 +814,14 @@
               'player-card hue-' + hueOf(player.id) +
               (isPresident ? ' is-president' : '') +
               (player.id === gv.chancellorId ? ' is-chancellor' : '') +
-              (!player.alive ? ' is-dead' : '')
+              (player.isolated ? ' is-isolated' : '')
           },
           [
             isPresident ? el('span', { class: 'avatar gold' }, [icon('crown')]) : avatar(player.id),
             el('div', { class: 'pname', text: player.name }),
             el('div', { class: 'psub', text: playerSubtitle(player, gv) }),
-            player.investigated ? el('span', { class: 'scan-tag', title: 'Escaneado' }, [icon('scanner')]) : null
+            player.investigated ? el('span', { class: 'scan-tag', title: 'Escaneado' }, [icon('scanner')]) : null,
+            player.isolated ? el('span', { class: 'iso-tag', title: 'Aislado en el módulo 4' }, [icon('lock')]) : null
           ]
         )
       );
@@ -836,8 +837,8 @@
     const rows = [
       ['Fase', PHASE_LABEL[gv.phase] || gv.phase, ''],
       ['Capitán', playerName(gv.presidentId), ''],
-      ['1.º Oficial', gv.chancellorId === null ? 'Sin nombrar' : playerName(gv.chancellorId), ''],
-      ['A bordo', String(aliveIds().length) + ' de ' + gv.playerCount, ''],
+      ['Reparador', gv.chancellorId === null ? 'Sin designar' : playerName(gv.chancellorId), ''],
+      ['Aislados', String(gv.players.filter(function (p) { return p.isolated; }).length) + ' de ' + gv.playerCount, ''],
       ['Anulación', gv.vetoUnlocked ? 'Habilitada' : 'Bloqueada', gv.vetoUnlocked ? 'ok' : 'locked']
     ];
 
@@ -898,7 +899,16 @@
     return panel;
   }
 
+  function cardList(cards) {
+    return cards
+      .map(function (card) {
+        return POLICY_INFO[card].label;
+      })
+      .join(' + ');
+  }
+
   const LOG_ICON = {
+    'tag-isolate': 'lock',
     'tag-crew': 'shield',
     'tag-sabotage': 'bolt',
     'tag-power': 'scanner',
@@ -912,7 +922,7 @@
       case 'chancellor-nominated':
         return {
           cls: '',
-          text: playerName(event.presidentId) + ' nominó a ' + playerName(event.chancellorId) + ' como Primer Oficial.'
+          text: playerName(event.presidentId) + ' designó a ' + playerName(event.chancellorId) + ' para reparar una zona.'
         };
       case 'vote-result':
         return {
@@ -932,18 +942,17 @@
           text: 'Gobierno en funciones: ' + playerName(event.presidentId) + ' y ' + playerName(event.chancellorId) + '.'
         };
       case 'legislative-session':
-        return { cls: '', text: 'Se entregan 3 directivas al Capitán.' };
+        return { cls: '', text: 'Se entregan 3 protocolos al Capitán.' };
       case 'policy-enacted':
         return {
           cls: event.policy === 'crew' ? 'tag-crew' : 'tag-sabotage',
           text:
-            'Directiva de ' +
-            POLICY_INFO[event.policy].label +
+            (event.policy === 'crew' ? 'Protocolo de reparación activado' : 'Sabotaje promulgado') +
             (event.source === 'tracker'
-              ? ' promulgada por la alerta de motín.'
+              ? ' por la alerta de motín.'
               : event.source === 'veto'
-                ? ' promulgada por la anulación forzada.'
-                : ' promulgada.')
+                ? ' por la anulación forzada.'
+                : '.')
         };
       case 'power-granted':
         return { cls: 'tag-power', text: 'Poder habilitado: ' + POWER_LONG[event.power] + '.' };
@@ -954,17 +963,29 @@
         if (event.power === 'special-election') {
           return { cls: 'tag-power', text: 'Cadena de mando: ' + playerName(event.targetId) + ' asume como Capitán.' };
         }
-        return { cls: 'tag-sabotage', text: 'Orden de esclusa contra ' + playerName(event.targetId) + '.' };
-      case 'player-executed':
-        return { cls: 'tag-sabotage', text: playerName(event.playerId) + ' salió por la esclusa.' };
+        return { cls: 'tag-power', text: 'Poder usado sobre ' + playerName(event.targetId) + '.' };
+      case 'player-isolated':
+        return { cls: 'tag-isolate', text: playerName(event.playerId) + ' quedó aislado en el módulo 4.' };
+      case 'open-hand':
+        return {
+          cls: 'tag-isolate',
+          text: playerName(event.chancellorId) + ' (aislado) recibió a la vista: ' + cardList(event.cards) + '.'
+        };
+      case 'open-discard':
+        return {
+          cls: 'tag-isolate',
+          text:
+            playerName(event.chancellorId) + ' descartó ' + POLICY_INFO[event.discarded].label +
+            ' y activó ' + POLICY_INFO[event.enacted].label + ', a la vista de todos.'
+        };
       case 'veto-proposed':
-        return { cls: '', text: 'El Primer Oficial propone anular las directivas.' };
+        return { cls: '', text: 'El reparador propone anular los protocolos.' };
       case 'veto-accepted':
         return { cls: 'tag-power', text: 'El Capitán acepta la anulación: no se promulga nada.' };
       case 'veto-refused':
         return { cls: '', text: 'El Capitán rechaza la anulación.' };
       case 'deck-reshuffled':
-        return { cls: '', text: 'Se rebarajan las directivas descartadas.' };
+        return { cls: '', text: 'Se rebarajan los protocolos descartados.' };
       case 'game-over':
         return {
           cls: 'tag-end',
@@ -1059,6 +1080,17 @@
     return list;
   }
 
+  // Shown to the whole table: an isolated reparador has no secret hand.
+  function openHandBanner(chancellorId) {
+    return el('div', { class: 'open-hand' }, [
+      el('div', { class: 'open-hand-title' }, [icon('lock'), el('span', { text: 'Juega a la vista de todos' })]),
+      el('div', { class: 'open-hand-sub', text: playerName(chancellorId) + ' está aislado en el módulo 4. Recibió:' }),
+      el('div', { class: 'open-hand-cards' }, game.chancellorHand.map(function (card) {
+        return el('span', { class: 'mini-card ' + card }, [icon(POLICY_INFO[card].icon), el('span', { text: POLICY_INFO[card].label })]);
+      }))
+    ]);
+  }
+
   function confirmButton(label, onConfirm, danger) {
     const picked = currentPick();
     if (picked === null) {
@@ -1115,7 +1147,7 @@
   }
 
   function doVote(yes) {
-    const voters = aliveIds();
+    const voters = seatedIds();
     const voter = voters[ui.voteIndex];
     ui.votes.push({ playerId: voter, yes: yes });
     ui.voteIndex += 1;
@@ -1217,7 +1249,7 @@
     const phase = gv.phase;
 
     if (phase === 'nomination') {
-      container.appendChild(actionHead('Nominación', '¿A quién vas a nominar como Primer Oficial?', 'star'));
+      container.appendChild(actionHead('Nominación', '¿A quién designás para reparar una zona?', 'star'));
       container.appendChild(playerChoices(E.eligibleChancellorIds(game), false));
       container.appendChild(confirmButton('Confirmar', doNominate, false));
       return container;
@@ -1225,13 +1257,13 @@
 
     if (phase === 'voting') {
       container.appendChild(
-        el('div', { class: 'vote-progress', text: 'Voto ' + (ui.voteIndex + 1) + ' de ' + aliveIds().length + ' · ' + playerName(actor) })
+        el('div', { class: 'vote-progress', text: 'Voto ' + (ui.voteIndex + 1) + ' de ' + seatedIds().length + ' · ' + playerName(actor) })
       );
       container.appendChild(
         actionHead(
           'Votá el gobierno',
           'Capitán ' + playerName(gv.presidentId) + ' propone a ' +
-            playerName(gv.chancellorId) + ' como Primer Oficial. Se aprueba con más votos a favor que en contra.',
+            playerName(gv.chancellorId) + ' para reparar una zona. Se aprueba con más votos a favor que en contra.',
           'vote'
         )
       );
@@ -1239,7 +1271,7 @@
         el('div', { class: 'gov-pair' }, [
           el('div', { class: 'gov-member' }, [el('span', { class: 'avatar gold' }, [icon('crown')]), el('b', { text: playerName(gv.presidentId) }), el('small', { text: 'Capitán' })]),
           el('span', { class: 'gov-plus', text: '+' }),
-          el('div', { class: 'gov-member' }, [avatar(gv.chancellorId), el('b', { text: playerName(gv.chancellorId) }), el('small', { text: '1.º Oficial' })])
+          el('div', { class: 'gov-member' }, [avatar(gv.chancellorId), el('b', { text: playerName(gv.chancellorId) }), el('small', { text: game.players[gv.chancellorId].isolated ? 'Reparador · aislado' : 'Reparador' })])
         ])
       );
       container.appendChild(
@@ -1254,8 +1286,9 @@
     if (phase === 'legislative-president') {
       container.appendChild(
         actionHead(
-          'Descartá una directiva',
-          'Capitán ' + playerName(actor) + ', tenés 3 directivas. Tocá la que querés descartar en secreto; las otras 2 pasan al Primer Oficial.',
+          'Descartá un protocolo',
+          'Capitán ' + playerName(actor) + ', tenés 3 protocolos. Tocá el que querés descartar en secreto; los otros 2 pasan al reparador.' +
+            (game.players[gv.chancellorId].isolated ? ' Ojo: el reparador está aislado y esas 2 cartas se verán en público.' : ''),
           'log'
         )
       );
@@ -1266,11 +1299,14 @@
     if (phase === 'legislative-chancellor') {
       container.appendChild(
         actionHead(
-          'Promulgá una directiva',
-          'Primer Oficial ' + playerName(actor) + ', tocá la directiva que querés descartar. La otra entra en vigencia.',
+          'Reparar la zona',
+          'Reparador ' + playerName(actor) + ', tocá el protocolo que querés descartar. El otro se activa.',
           'log'
         )
       );
+      if (gv.openHand) {
+        container.appendChild(openHandBanner(actor));
+      }
       container.appendChild(policyCards(game.chancellorHand, doChancellorDiscard, 'Descartar'));
 
       if (gv.vetoUnlocked) {
@@ -1281,7 +1317,7 @@
             ]),
             el('div', {
               class: 'fine',
-              text: 'Si el Capitán acepta, se descartan las dos directivas y sube la alerta de motín.'
+              text: 'Si el Capitán acepta, se descartan los dos protocolos y sube la alerta de motín.'
             })
           ])
         );
@@ -1293,8 +1329,8 @@
       container.appendChild(
         actionHead(
           'Anulación conjunta',
-          'El Primer Oficial ' + playerName(gv.chancellorId) +
-            ' quiere anular las directivas. Capitán ' + playerName(actor) + ', ¿aceptás?',
+          'El reparador ' + playerName(gv.chancellorId) +
+            ' quiere anular los protocolos. Capitán ' + playerName(actor) + ', ¿aceptás?',
           'unlock'
         )
       );
@@ -1309,10 +1345,10 @@
 
     if (phase === 'power') {
       const power = gv.pendingPower;
-      const danger = power === 'execute';
+      const danger = power === 'isolate';
       container.appendChild(actionHead(POWER_LONG[power] || 'Poder del Capitán', POWER_HINT[power] || '', POWER_ICON[power]));
-      container.appendChild(playerChoices(aliveIds(), danger));
-      container.appendChild(confirmButton(danger ? 'Confirmar expulsión' : 'Confirmar', doUsePower, danger));
+      container.appendChild(playerChoices(power === 'isolate' ? E.isolationTargetIds(game) : seatedIds(), danger));
+      container.appendChild(confirmButton(danger ? 'Confirmar aislamiento' : 'Confirmar', doUsePower, danger));
       const notes = notesFor(actor);
       if (notes) {
         container.appendChild(notes);
@@ -1363,7 +1399,7 @@
           class: 'pass-hint',
           text:
             game.electionTracker === 0
-              ? 'La alerta de motín llegó al máximo: se promulgó la directiva de arriba del mazo.'
+              ? 'La alerta de motín llegó al máximo: se activó el protocolo de arriba del mazo.'
               : 'Alerta de motín: ' + game.electionTracker + ' de ' + E.TRACKER_LIMIT + '.'
         })
       );
@@ -1428,10 +1464,10 @@
 
   function handoffOverlay(actorId) {
     const reasons = {
-      nomination: 'Tiene que nominar al Primer Oficial.',
+      nomination: 'Tiene que designar a quién repara una zona.',
       voting: 'Tiene que emitir su voto en secreto.',
-      'legislative-president': 'Tiene que descartar una directiva en secreto.',
-      'legislative-chancellor': 'Tiene que promulgar una directiva.',
+      'legislative-president': 'Tiene que descartar un protocolo en secreto.',
+      'legislative-chancellor': 'Tiene que reparar la zona.',
       'veto-request': 'Tiene que responder a la propuesta de anulación.',
       power: 'Tiene que resolver su poder de Capitán.'
     };
@@ -1442,6 +1478,7 @@
         avatar(actorId, 'xl'),
         el('div', { class: 'pass-name', text: playerName(actorId) }),
         el('p', { class: 'pass-hint', text: reasons[game.phase] || 'Es su turno.' }),
+        E.publicView(game).openHand ? openHandBanner(actorId) : null,
         el('div', { class: 'overlay-actions' }, [
           el('button', { class: 'btn btn-primary btn-wide', type: 'button', onClick: markReady }, [
             'Soy ' + playerName(actorId)
@@ -1467,7 +1504,7 @@
         el('div', { class: 'reveal-row ' + player.role + (player.role === 'android' ? ' was-android' : '') }, [
           avatar(player.id, 'sm'),
           el('span', { class: 'rname', text: player.name }),
-          el('span', { class: 'badge' + (player.alive ? '' : ' dead'), text: player.alive ? 'a bordo' : 'esclusa' }),
+          el('span', { class: 'badge' + (player.isolated ? ' isolated' : ''), text: player.isolated ? 'aislado' : 'a bordo' }),
           el('span', { class: 'rrole', text: info.label })
         ])
       );
@@ -1489,52 +1526,55 @@
     {
       title: 'Objetivo',
       body:
-        'A bordo hay dos bandos. La Tripulación leal gana si se promulgan 6 directivas de ' +
-        'Tripulación o si el Androide sale por la esclusa. Los Infiltrados ganan si se ' +
-        'promulgan 6 directivas de Sabotaje, o si el Androide llega a Primer Oficial con ' +
+        'A bordo hay dos bandos. La Tripulación leal gana si se activan 6 protocolos de ' +
+        'reparación o si el Androide queda aislado en el módulo 4. Los Infiltrados ganan si se ' +
+        'promulgan 6 sabotajes, o si el Androide es elegido reparador con ' +
         '3 o más sabotajes ya promulgados.'
     },
     {
       title: 'El gobierno',
       body:
-        'En cada ronda el Capitán nombra a un Primer Oficial y todos votan en secreto. El ' +
+        'En cada ronda el Capitán designa a un tripulante para reparar una zona (el reparador) y ' +
+        'todos votan en secreto, también los aislados. El ' +
         'gobierno se aprueba solo si hay más votos a favor que en contra: un empate lo ' +
         'rechaza.'
     },
     {
-      title: 'La sesión legislativa',
+      title: 'La sesión de reparación',
       body:
-        'Si el gobierno se aprueba, el Capitán roba 3 directivas y descarta una en secreto. ' +
-        'Le pasa las 2 restantes al Primer Oficial, que descarta otra y promulga la última. ' +
-        'Cuando queden menos de 3 directivas en el mazo, se mezclan con los descartes.'
+        'Si el gobierno se aprueba, el Capitán roba 3 protocolos y descarta uno en secreto. ' +
+        'Le pasa los 2 restantes al reparador, que descarta otro y activa el último. ' +
+        'Cuando queden menos de 3 protocolos en el mazo, se mezclan con los descartes.'
     },
     {
       title: 'Alerta de motín',
       body:
         'Cada gobierno rechazado sube un nivel de la alerta. Al tercero la nave toma el ' +
-        'control: se promulga la primera directiva del mazo, sin poder presidencial, y la ' +
+        'control: se activa el primer protocolo del mazo, sin poder para el Capitán, y la ' +
         'alerta vuelve a cero.'
     },
     {
-      title: 'Expulsión por la esclusa',
+      title: 'Aislamiento en el módulo 4',
       body:
-        'Si un poder manda a alguien a la esclusa, queda fuera del juego: no vota y no puede ' +
-        'ser nombrado. Su rol nunca se revela. Si expulsan al Androide, gana la Tripulación ' +
-        'en el acto.'
+        'Nadie muere ni sale del juego. El jugador aislado sigue hablando, votando y puede ser ' +
+        'Capitán o reparador, pero pierde el secreto: si lo eligen reparador, los 2 protocolos ' +
+        'que recibe y el que descarta se muestran a toda la mesa. Su rol nunca se revela. Si ' +
+        'aíslan al Androide, gana la Tripulación en el acto. El Capitán no puede aislarse a sí ' +
+        'mismo ni volver a aislar a alguien que ya está en el módulo 4.'
     },
     {
       title: 'Anulación conjunta',
       body:
-        'Cuando ya hay 5 sabotajes promulgados, el Primer Oficial puede proponer anular el ' +
+        'Cuando ya hay 5 sabotajes promulgados, el reparador puede proponer anular el ' +
         'gobierno. Si el Capitán acepta, ambos descartan sus manos sin promulgar nada y la ' +
-        'alerta sube un nivel. Si rechaza, sigue la sesión legislativa normal.'
+        'alerta sube un nivel. Si rechaza, sigue la sesión de reparación normal.'
     },
     {
       title: 'Límites de mandato',
       body:
-        'El Primer Oficial del gobierno anterior no puede repetir en el siguiente. El Capitán ' +
-        'anterior tampoco, salvo que queden 5 jugadores o menos a bordo. El Capitán en ' +
-        'ejercicio nunca puede ser su propio Primer Oficial.'
+        'El reparador del gobierno anterior no puede repetir en el siguiente. El Capitán ' +
+        'anterior tampoco, salvo en partidas de 5 jugadores. El Capitán en ' +
+        'ejercicio nunca puede designarse a sí mismo.'
     }
   ];
 
@@ -1641,10 +1681,13 @@
         'Alguien a bordo está saboteando los sistemas, y no es del todo humano.',
       'Los informes hablan de un Androide: una unidad que se hace pasar por tripulante, que ' +
         'respira cuando conviene y que responde a una cadena de mando que nadie autorizó. ' +
-        'Junto a él, uno o más infiltrados abrieron la esclusa desde adentro.',
-      'No hay comunicación con la Tierra. No hay nave de rescate. Solo queda el protocolo: ' +
-        'cada ronda se nombra un Capitán y un Primer Oficial, se votan las directivas y se ' +
-        'decide quién sigue respirando. El que mienta mejor, gana.'
+        'Junto a él, uno o más infiltrados sabotean la nave desde adentro.',
+      'No hay comunicación con la Tierra. No hay nave de rescate, y nadie va a sobrar: cada ' +
+        'par de manos hace falta para mantener la estación en órbita. Por eso el protocolo no ' +
+        'expulsa a nadie. Al sospechoso se lo encierra en el módulo 4, detrás de la escotilla ' +
+        'que nadie abre, y desde ahí sigue trabajando bajo la mirada de todos.',
+      'Cada ronda se nombra un Capitán, que designa a un tripulante para reparar una zona. ' +
+        'Se votan los protocolos y se decide en quién se puede confiar. El que mienta mejor, gana.'
     ].forEach(function (paragraph) {
       wrap.appendChild(el('p', { class: 'sheet-p', text: paragraph }));
     });

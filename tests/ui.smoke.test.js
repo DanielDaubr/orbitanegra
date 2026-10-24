@@ -327,6 +327,9 @@ function playOneGame(seed, seen) {
       return text.indexOf('Soy ') === 0;
     });
     if (button) {
+      if (flat.indexOf('quedó aislado en el módulo 4') !== -1) {
+        seen.isolatedGames.add(seed);
+      }
       assert.equal(
         elementsByClass(root, 'role-card').length,
         0,
@@ -389,6 +392,9 @@ function playOneGame(seed, seen) {
 
     const cards = buttonsByClass(root, 'policy-card');
     if (cards.length > 0) {
+      if (elementsByClass(root, 'open-hand').length > 0) {
+        seen.openHand += 1;
+      }
       click(cards[Math.floor(rand() * cards.length)]);
       seen.policy += 1;
       continue;
@@ -441,11 +447,13 @@ test('the UI can play whole games without dead ends', function () {
     vetoPropose: 0,
     vetoAnswer: 0,
     investigationResult: 0,
-    confirm: 0
+    confirm: 0,
+    openHand: 0,
+    isolatedGames: new Set()
   };
 
   const outcomes = { crew: 0, infiltrators: 0 };
-  const games = 12;
+  const games = 24;
 
   for (let i = 0; i < games; i += 1) {
     const result = playOneGame(i * 7919 + 17, seen);
@@ -477,6 +485,8 @@ test('the UI can play whole games without dead ends', function () {
   assert.ok(seen.policy > games, 'policies must actually be enacted');
   assert.ok(seen.pick > games, 'nominations and power targets must be selectable');
   assert.equal(seen.confirm, seen.pick, 'every pick is confirmed before it takes effect');
+  assert.ok(seen.isolatedGames.size > 0, 'some games must reach an isolation in the módulo 4');
+  assert.ok(seen.openHand > 0, 'an isolated reparador must legislate with the cards in the open');
   assert.ok(outcomes.crew > 0, 'the crew victory screen must be reachable');
   assert.ok(outcomes.infiltrators > 0, 'the infiltrator victory screen must be reachable');
 });
