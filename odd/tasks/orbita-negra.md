@@ -106,6 +106,11 @@ leak on the handoff screen, the game is not playable with real people at a table
       repair card in the deck. Random-play probe, 3 000 games per player count:
       crew wins 16.6% at 6/6 and 23.0% at 5/6; average length 12.6 → 12.3 rounds.
       The crew track renders from `E.CREW_WIN_POLICIES`, so it shows 5 cells.
+- [x] **T18** Power targets — no power may target the Capitán
+      (`cannot-target-self`); Cadena de mando also refuses the Capitán of the
+      previous round (`cannot-pick-previous-captain`), tracked as
+      `state.priorCaptainId` on every change of command. `powerTargetIds()` is
+      the single source the UI offers. The rules sheet now explains each power.
 
 ## Progress and evidence
 

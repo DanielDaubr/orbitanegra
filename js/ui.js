@@ -196,8 +196,12 @@
   };
 
   const POWER_HINT = {
-    investigate: 'Elegí a un jugador para conocer si pertenece a la Tripulación o a los Infiltrados. El Androide se lee como infiltrado.',
-    'special-election': 'Elegí a cualquier jugador para que asuma como Capitán en el próximo gobierno. Después la cadena vuelve a su orden normal.',
+    investigate:
+      'Elegí a otro jugador para conocer si pertenece a la Tripulación o a los Infiltrados. Solo vos ' +
+      'ves el resultado. El Androide se lee como infiltrado.',
+    'special-election':
+      'Elegí quién será el próximo Capitán. No podés elegirte a vos ni al Capitán de la ronda ' +
+      'anterior. Después el turno sigue desde tu lugar, como si nada.',
     isolate:
       'Elegí a un jugador para aislarlo en el módulo 4. Sigue votando y puede gobernar, pero si lo ' +
       'eligen reparador juega con las cartas a la vista. Si es el Androide, gana la Tripulación.'
@@ -1353,7 +1357,7 @@
       const power = gv.pendingPower;
       const danger = power === 'isolate';
       container.appendChild(actionHead(POWER_LONG[power] || 'Poder del Capitán', POWER_HINT[power] || '', POWER_ICON[power]));
-      container.appendChild(playerChoices(power === 'isolate' ? E.isolationTargetIds(game) : seatedIds(), danger));
+      container.appendChild(playerChoices(E.powerTargetIds(game), danger));
       container.appendChild(confirmButton(danger ? 'Confirmar aislamiento' : 'Confirmar', doUsePower, danger));
       const notes = notesFor(actor);
       if (notes) {
@@ -1586,6 +1590,40 @@
     }
   ];
 
+  const POWER_RULES = [
+    {
+      power: 'investigate',
+      title: 'Escáner biométrico',
+      body:
+        'El Capitán elige a otro jugador y mira en secreto si es de la Tripulación o de los ' +
+        'Infiltrados. El Androide aparece como infiltrado. El resultado solo lo ve el Capitán: ' +
+        'puede contarlo a la mesa, decir la verdad o mentir.'
+    },
+    {
+      power: 'special-election',
+      title: 'Cadena de mando',
+      body:
+        'El Capitán elige quién será el próximo Capitán, sin respetar el turno. No puede ' +
+        'elegirse a sí mismo ni al Capitán de la ronda anterior. El elegido gobierna una ronda ' +
+        'normal y después el turno sigue desde el lugar del Capitán que usó el poder, como si ' +
+        'la cadena no hubiera pasado. Sirve para poner el mando en manos de alguien de ' +
+        'confianza… o de un cómplice.'
+    },
+    {
+      power: 'isolate',
+      title: 'Aislamiento en el módulo 4',
+      body:
+        'El Capitán elige a otro jugador que todavía no esté aislado. Nadie muere: el aislado ' +
+        'sigue votando y puede gobernar, pero si es reparador juega con las cartas a la vista. ' +
+        'Si el aislado es el Androide, gana la Tripulación en el acto.'
+    },
+    {
+      power: 'win',
+      title: 'Fin',
+      body: 'El sexto sabotaje no da poder: los Infiltrados ganan la partida.'
+    }
+  ];
+
   function rolesTable() {
     const table = el('table', { class: 'rules-table' });
     table.appendChild(
@@ -1695,11 +1733,18 @@
     wrap.appendChild(
       el('p', {
         class: 'fine left',
-        text:
-          'Columnas: sabotaje número 1 a 5. Escáner = escáner biométrico · Cadena = cadena de ' +
-          'mando · Aislar = aislamiento en el módulo 4.'
+        text: 'Columnas: sabotaje número 1 a 5. Ningún poder se puede usar sobre uno mismo.'
       })
     );
+
+    POWER_RULES.forEach(function (rule) {
+      wrap.appendChild(
+        el('div', { class: 'power-rule' }, [
+          el('div', { class: 'power-rule-head' }, [icon(POWER_ICON[rule.power]), el('span', { text: rule.title })]),
+          el('p', { class: 'sheet-p', text: rule.body })
+        ])
+      );
+    });
 
     return wrap;
   }

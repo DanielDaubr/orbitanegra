@@ -2165,3 +2165,24 @@ body {
     display: block;
   }
 }
+
+.power-rule {
+  margin-top: 14px;
+  padding: 12px 14px 4px;
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  background: rgba(3, 8, 18, 0.5);
+}
+
+.power-rule-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-family: var(--display);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fca5b5;
+}

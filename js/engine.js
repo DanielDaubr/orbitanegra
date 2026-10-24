@@ -151,7 +151,10 @@
       winReason: null,
       seed: seed,
       rngState: seed,
-      resumeAfterId: null
+      resumeAfterId: null,
+      // Whoever held the captaincy in the round before the current one,
+      // elected or not. Cadena de mando may not hand the command back to them.
+      priorCaptainId: null
     };
 
     for (let i = 0; i < playerCount; i += 1) {
@@ -550,6 +553,10 @@
     if (!isPlayer(state, targetId)) {
       return fail('unknown-player');
     }
+    const refusal = targetRefusal(state, power, targetId);
+    if (refusal) {
+      return fail(refusal);
+    }
 
     if (power === 'investigate') {
       const target = state.players[targetId];
@@ -567,6 +574,7 @@
     if (power === 'special-election') {
       pushEvent(state, { type: 'power-used', power: power, targetId: targetId });
       state.resumeAfterId = state.presidentId;
+      state.priorCaptainId = state.presidentId;
       state.pendingPower = null;
       state.chancellorId = null;
       state.presidentId = targetId;
@@ -575,12 +583,6 @@
     }
 
     if (power === 'isolate') {
-      if (targetId === state.presidentId) {
-        return fail('cannot-isolate-self');
-      }
-      if (state.players[targetId].isolated) {
-        return fail('already-isolated');
-      }
       state.players[targetId].isolated = true;
       pushEvent(state, { type: 'player-isolated', playerId: targetId });
       state.pendingPower = null;
@@ -598,10 +600,35 @@
     return fail('unknown-power');
   }
 
-  function isolationTargetIds(state) {
+  // Why a target is not allowed for a power, or null when it is.
+  //   every power      -> never the Capitán themselves
+  //   special-election -> nor the Capitán of the previous round
+  //   isolate          -> nor someone already in the módulo 4
+  function targetRefusal(state, power, targetId) {
+    if (targetId === state.presidentId) {
+      return 'cannot-target-self';
+    }
+    if (power === 'special-election' && targetId === state.priorCaptainId) {
+      return 'cannot-pick-previous-captain';
+    }
+    if (power === 'isolate' && state.players[targetId].isolated) {
+      return 'already-isolated';
+    }
+    return null;
+  }
+
+  function powerTargetIds(state, power) {
+    const kind = power || state.pendingPower;
+    if (!kind) {
+      return [];
+    }
     return playerIds(state).filter(function (id) {
-      return id !== state.presidentId && !state.players[id].isolated;
+      return targetRefusal(state, kind, id) === null;
     });
+  }
+
+  function isolationTargetIds(state) {
+    return powerTargetIds(state, 'isolate');
   }
 
   // --------------------------------------------------------------------- turns
@@ -612,6 +639,7 @@
       origin = state.resumeAfterId;
       state.resumeAfterId = null;
     }
+    state.priorCaptainId = state.presidentId;
     state.presidentId = nextSeatAfter(state, origin);
     state.chancellorId = null;
   }
@@ -653,6 +681,8 @@
           ? state.chancellorHand.slice()
           : null,
       isolationTargetIds: isolationTargetIds(state),
+      powerTargetIds: state.phase === 'power' ? powerTargetIds(state) : [],
+      priorCaptainId: state.priorCaptainId,
       eligibleChancellorIds: eligibleChancellorIds(state),
       lastVote: state.lastVote
         ? {
@@ -713,6 +743,7 @@
     privateView: privateView,
     eligibleChancellorIds: eligibleChancellorIds,
     isolationTargetIds: isolationTargetIds,
+    powerTargetIds: powerTargetIds,
     nominateChancellor: nominateChancellor,
     castVotes: castVotes,
     presidentDiscard: presidentDiscard,

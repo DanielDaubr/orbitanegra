@@ -550,6 +550,10 @@ test('the rules sheet opens before the game starts', function () {
   assert.ok(sheetText.indexOf('Alerta de motín') !== -1, 'the rules document the election tracker');
   assert.ok(sheetText.indexOf('Anulación conjunta') !== -1, 'the rules document the veto');
   assert.ok(sheetText.indexOf('Poderes del Capitán') !== -1, 'the rules document the presidential powers');
+  ['Escáner biométrico', 'Cadena de mando', 'Aislamiento en el módulo 4'].forEach(function (power) {
+    assert.ok(sheetText.indexOf(power) !== -1, 'the rules explain ' + power);
+  });
+  assert.ok(sheetText.indexOf('Capitán de la ronda anterior') !== -1, 'the rules state the cadena de mando limits');
 
   const roleRows = elementsByClass(root, 'rules-table')[0].textContent;
   ['5', '6', '7', '8', '9', '10'].forEach(function (count) {

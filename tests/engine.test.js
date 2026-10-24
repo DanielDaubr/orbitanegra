@@ -328,12 +328,63 @@ test('the Capitán cannot isolate themselves or an already isolated player', fun
   state.players[3].isolated = true;
   const snapshot = JSON.stringify(state);
 
-  assert.equal(E.usePower(state, { targetId: 0 }).error, 'cannot-isolate-self');
+  assert.equal(E.usePower(state, { targetId: 0 }).error, 'cannot-target-self');
   assert.equal(E.usePower(state, { targetId: 3 }).error, 'already-isolated');
   assert.equal(JSON.stringify(state), snapshot, 'rejected isolations must not mutate state');
   assert.equal(E.isolationTargetIds(state).indexOf(0), -1);
   assert.equal(E.isolationTargetIds(state).indexOf(3), -1);
   assert.equal(E.isolationTargetIds(state).length, 5);
+});
+
+test('cadena de mando refuses the Capitán and the previous round Capitán', function () {
+  const state = makeTable({ players: 7, seed: 90, policies: { crew: 0, sabotage: 3 } });
+  state.phase = 'power';
+  state.pendingPower = 'special-election';
+  state.presidentId = 2;
+  state.priorCaptainId = 1;
+  const snapshot = JSON.stringify(state);
+
+  assert.equal(E.usePower(state, { targetId: 2 }).error, 'cannot-target-self');
+  assert.equal(E.usePower(state, { targetId: 1 }).error, 'cannot-pick-previous-captain');
+  assert.equal(JSON.stringify(state), snapshot, 'refusals must not mutate state');
+  assert.deepEqual(E.powerTargetIds(state), [0, 3, 4, 5, 6]);
+
+  const result = E.usePower(state, { targetId: 5 });
+  assert.equal(result.ok, true);
+  assert.equal(state.presidentId, 5, 'the chosen player is the next Capitán');
+  assert.equal(state.priorCaptainId, 2, 'the Capitán who used the power becomes the previous one');
+});
+
+test('after a cadena de mando the turn resumes after the Capitán who used it', function () {
+  const state = makeTable({ players: 7, seed: 91, policies: { crew: 0, sabotage: 3 } });
+  state.phase = 'power';
+  state.pendingPower = 'special-election';
+  state.presidentId = 2;
+  E.usePower(state, { targetId: 5 });
+
+  failGovernment(state);
+  assert.equal(state.presidentId, 3, 'seat 3 follows seat 2, not seat 5');
+  assert.equal(state.priorCaptainId, 5);
+});
+
+test('the previous Capitán is tracked through every change of command', function () {
+  const state = makeGame(6, 92);
+  const first = state.presidentId;
+  assert.equal(state.priorCaptainId, null, 'nobody came before the first Capitán');
+  failGovernment(state);
+  assert.equal(state.priorCaptainId, first, 'a failed vote still counts as a round in command');
+});
+
+test('the escáner cannot target the Capitán', function () {
+  const state = makeTable({ players: 7, seed: 93, policies: { crew: 0, sabotage: 1 } });
+  state.phase = 'power';
+  state.pendingPower = 'investigate';
+  state.presidentId = 4;
+  state.priorCaptainId = 3;
+
+  assert.equal(E.usePower(state, { targetId: 4 }).error, 'cannot-target-self');
+  assert.ok(E.powerTargetIds(state).indexOf(3) !== -1, 'the previous Capitán can be scanned');
+  assert.equal(E.powerTargetIds(state).length, 6);
 });
 
 test('isolated players still vote and can serve as Capitán or reparador', function () {
@@ -711,10 +762,20 @@ function randomMove(state, rand) {
   }
 
   if (state.phase === 'power') {
-    const pool = state.pendingPower === 'isolate'
-      ? E.isolationTargetIds(state)
-      : state.players.map(function (p) { return p.id; });
+    const pool = E.powerTargetIds(state);
     assert.ok(pool.length > 0, 'a power must always have a target');
+    assert.equal(pool.indexOf(state.presidentId), -1, 'the Capitán is never a valid target');
+    if (state.pendingPower === 'special-election') {
+      assert.equal(pool.indexOf(state.priorCaptainId), -1, 'the previous Capitán is never offered');
+    }
+    // Every refused target must be rejected without side effects.
+    state.players.forEach(function (p) {
+      if (pool.indexOf(p.id) === -1) {
+        const before = JSON.stringify(state);
+        assert.equal(E.usePower(state, { targetId: p.id }).ok, false, 'refused target accepted');
+        assert.equal(JSON.stringify(state), before, 'a refused target mutated state');
+      }
+    });
     const target = pool[Math.floor(rand() * pool.length)];
     const result = E.usePower(state, { targetId: target });
     assert.equal(result.ok, true, 'power use failed: ' + result.error);
