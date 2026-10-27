@@ -814,8 +814,10 @@
     ])));
 
     const roster = el('div', { class: 'crew-grid' });
+    const acting = currentActorId();
     gv.players.forEach(function (player) {
       const isPresident = player.id === gv.presidentId;
+      const isActing = player.id === acting;
       roster.appendChild(
         el(
           'div',
@@ -824,9 +826,12 @@
               'player-card hue-' + hueOf(player.id) +
               (isPresident ? ' is-president' : '') +
               (player.id === gv.chancellorId ? ' is-chancellor' : '') +
-              (player.isolated ? ' is-isolated' : '')
+              (player.isolated ? ' is-isolated' : '') +
+              (isActing ? ' is-acting' : ''),
+            'aria-current': isActing ? 'true' : null
           },
           [
+            isActing ? el('span', { class: 'turn-tag', text: 'Turno' }) : null,
             isPresident ? el('span', { class: 'avatar gold' }, [icon('crown')]) : avatar(player.id),
             el('div', { class: 'pname', text: player.name }),
             el('div', { class: 'psub', text: playerSubtitle(player, gv) }),
@@ -1248,6 +1253,9 @@
     }
 
     const container = el('section', { class: 'panel action', id: 'action' });
+    if (isReady()) {
+      container.className += ' is-live';
+    }
 
     if (!isReady()) {
       container.appendChild(actionHead('Esperando jugada', null, 'sync'));
@@ -1931,6 +1939,27 @@
     }
   }
 
+  // A strip under the header that names who must act now, so the turn is
+  // readable even when the action panel is below the fold on a phone.
+  function turnBanner(gv) {
+    const actor = currentActorId();
+    if (actor === null) {
+      return null;
+    }
+    const ready = isReady();
+    const what = ready
+      ? PHASE_LABEL[gv.phase] || ''
+      : 'En espera';
+    return el('div', { class: 'turn-banner' + (ready ? ' live' : ' waiting'), role: 'status', 'aria-live': 'polite' }, [
+      avatar(actor, 'sm'),
+      el('div', { class: 'turn-text' }, [
+        el('span', { class: 'turn-kicker', text: ready ? 'Te toca' : 'Turno de' }),
+        el('span', { class: 'turn-name', text: playerName(actor) })
+      ]),
+      el('span', { class: 'turn-phase', text: what })
+    ]);
+  }
+
   function renderBase() {
     app.textContent = '';
     app.className = 'app screen-' + (game ? (ui.screen === 'reveal' ? 'reveal' : 'board') : ui.screen);
@@ -1947,6 +1976,12 @@
     }
 
     app.appendChild(gameHeader());
+    if (ui.screen !== 'reveal' && game.phase !== 'game-over') {
+      const banner = turnBanner(E.publicView(game));
+      if (banner) {
+        app.appendChild(banner);
+      }
+    }
 
     if (ui.screen === 'reveal') {
       app.appendChild(dock());

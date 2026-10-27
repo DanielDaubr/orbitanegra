@@ -118,6 +118,12 @@ leak on the handoff screen, the game is not playable with real people at a table
       asks "Soy …" again, and a pending escáner result is only shown after its
       Capitán confirms. Missing or blocked storage just means no save; a corrupt
       save is discarded. Leaving the game clears it.
+- [x] **T20** Active turn is easy to spot — the acting player's card in the
+      crew grid gets a pulsing cyan ring and a "Turno" tag (gold for the
+      Capitán); a sticky strip under the header says "Te toca · <nombre>" once
+      the hand-off is confirmed, or "Turno de · <nombre>" while the device is
+      being passed; the action panel glows when it is live. The roster marks
+      the current voter during voting.
 
 ## Progress and evidence
 
